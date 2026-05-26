@@ -1,0 +1,30 @@
+# =============================================================================
+# Smart Inventory — Python Dependencies
+# =============================================================================
+# Install with:  pip install -r requirements.txt
+# Freeze with:   pip freeze > requirements.txt
+
+# --- Web Framework ---
+Flask==3.0.0
+Flask-CORS==4.0.0          # Cross-Origin Resource Sharing (frontend → API)
+
+# --- Database ---
+Flask-SQLAlchemy==3.1.1    # ORM — talk to MySQL with Python objects
+PyMySQL==1.1.0             # Pure-Python MySQL driver
+cryptography==41.0.7       # Required by PyMySQL for secure connections
+
+# --- Authentication ---
+Werkzeug==3.0.1            # Provides password hashing (generate_password_hash)
+
+# --- Environment Variables ---
+python-dotenv==1.0.0       # Loads .env file into os.environ
+
+# --- Utilities ---
+python-dateutil==2.8.2     # Robust date parsing
+
+# --- Production Server ---
+gunicorn==21.2.0           # WSGI server (used instead of Flask dev server)
+
+# --- Testing (optional: install separately) ---
+# pytest==7.4.3
+# requests==2.31.0

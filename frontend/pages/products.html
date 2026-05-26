@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products — Smart Inventory</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-icon">SI</div>
+                <div>
+                    <h1>Smart Inventory</h1>
+                    <small>Management System</small>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">Main</div>
+                <a class="nav-item" data-page="dashboard" href="dashboard.html"><i data-feather="layout-dashboard"></i> Dashboard</a>
+                <a class="nav-item active" data-page="products" href="products.html"><i data-feather="package"></i> Products</a>
+                <a class="nav-item" data-page="inventory" href="inventory.html"><i data-feather="archive"></i> Inventory</a>
+                <a class="nav-item" data-page="sales" href="sales.html"><i data-feather="shopping-cart"></i> Sales</a>
+                <a class="nav-item" data-page="alerts" href="alerts.html"><i data-feather="alert-triangle"></i> Alerts</a>
+            </nav>
+            <div class="sidebar-footer">
+                <a class="nav-item" href="login.html" onclick="return confirm('Logout?')"><i data-feather="log-out"></i> Logout</a>
+            </div>
+        </aside>
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="hamburger" id="hamburger">&#9776;</button>
+                    <h2 class="page-title">Products</h2>
+                </div>
+                <div class="topbar-right">
+                    <button class="theme-toggle" id="themeToggle" title="Toggle theme"><i data-feather="moon"></i></button>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="search-bar">
+                            <input type="text" class="form-control" id="searchInput" placeholder="Search by name or SKU..." oninput="debounceSearch()">
+                            <select class="form-control" id="categoryFilter" onchange="loadProducts()" style="max-width:180px">
+                                <option value="">All Categories</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="openAddModal()"><i data-feather="plus"></i> Add Product</button>
+                    </div>
+
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th><th>SKU</th><th>Category</th><th>Qty</th>
+                                    <th>Reorder</th><th>Price</th><th>Status</th><th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productsBody">
+                                <tr><td colspan="8" class="empty-state">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination" id="pagination"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add/Edit Product Modal -->
+    <div class="modal-overlay" id="productModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add Product</h2>
+                <button class="modal-close" onclick="closeModal('productModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="productForm" onsubmit="saveProduct(event)">
+                    <input type="hidden" id="productId">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Product Name *</label>
+                            <input type="text" class="form-control" id="prodName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>SKU *</label>
+                            <input type="text" class="form-control" id="prodSku" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea class="form-control" id="prodDesc" rows="2"></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Quantity</label>
+                            <input type="number" class="form-control" id="prodQty" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Unit Price *</label>
+                            <input type="number" class="form-control" id="prodPrice" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Category</label>
+                            <div style="display:flex;gap:4px;">
+                                <select class="form-control" id="prodCategory" style="flex:1"><option value="">General</option></select>
+                                <button type="button" class="btn btn-sm btn-secondary" onclick="createCategory()" title="Create new category" style="padding:0 10px;">+</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Reorder Level</label>
+                            <input type="number" class="form-control" id="prodReorder" min="0" value="10">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Barcode (optional)</label>
+                        <input type="text" class="form-control" id="prodBarcode" placeholder="EAN-13 or UPC-A">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('productModal')">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="saveBtn">Save Product</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="../static/js/app.js"></script>
+    <script>
+        let currentPage = 1;
+        let searchTimer = null;
+
+        function debounceSearch() {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(loadProducts, 300);
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            loadCategories();
+            loadProducts();
+        });
+
+        async function loadCategories() {
+            try {
+                const data = await api.get("/products/categories");
+                const filterSel = document.getElementById("categoryFilter");
+                const formSel = document.getElementById("prodCategory");
+                const nameOpts = data.map(c => `<option value="${c.name}">${c.name}</option>`).join("");
+                const idOpts = data.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
+                filterSel.innerHTML = '<option value="">All Categories</option>' + nameOpts;
+                formSel.innerHTML = '<option value="">General</option>' + idOpts;
+            } catch (e) { console.error("Categories error:", e); }
+            refreshIcons();
+        }
+
+        async function createCategory() {
+            const name = prompt("Enter new category name:");
+            if (!name || !name.trim()) return;
+            try {
+                await api.post("/products/categories", { name: name.trim() });
+                await loadCategories();
+                showToast("Category created", "success");
+            } catch (e) {
+                showToast("Failed to create category: " + e.message, "error");
+            }
+        }
+
+        async function loadProducts() {
+            const q = document.getElementById("searchInput").value;
+            const cat = document.getElementById("categoryFilter").value;
+            const params = new URLSearchParams({ page: currentPage, per_page: 20 });
+            if (q) params.set("q", q);
+            if (cat) params.set("category", cat);
+
+            try {
+                const data = await api.get("/products/?" + params);
+                const tbody = document.getElementById("productsBody");
+
+                if (data.products.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><i data-feather="package"></i><h3>No products found</h3><p>Add your first product to get started.</p></td></tr>';
+                } else {
+                    tbody.innerHTML = data.products.map(p => {
+                        const low = p.quantity <= p.reorder_level;
+                        return `<tr>
+                            <td><strong>${p.name}</strong></td>
+                            <td style="color:var(--text-muted)">${p.sku}</td>
+                            <td><span class="badge badge-neutral">${p.category || "General"}</span></td>
+                            <td class="${low ? 'badge badge-danger' : ''}">${p.quantity}</td>
+                            <td>${p.reorder_level}</td>
+                            <td><strong>$${Number(p.unit_price).toFixed(2)}</strong></td>
+                            <td>${low ? '<span class="badge badge-danger">Low Stock</span>' : '<span class="badge badge-success">In Stock</span>'}</td>
+                            <td>
+                                <button class="btn btn-sm btn-secondary" onclick="editProduct(${p.id})"><i data-feather="edit-2" style="width:14px;height:14px;"></i></button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteProduct(${p.id})"><i data-feather="trash-2" style="width:14px;height:14px;"></i></button>
+                            </td>
+                        </tr>`;
+                    }).join("");
+                }
+
+                // Pagination
+                renderPagination(data);
+            } catch (e) {
+                document.getElementById("productsBody").innerHTML =
+                    '<tr><td colspan="8" class="empty-state"><i data-feather="alert-circle"></i><h3>Error loading products</h3><p>Make sure the API server is running.</p></td></tr>';
+            }
+            refreshIcons();
+        }
+
+        function renderPagination(data) {
+            const div = document.getElementById("pagination");
+            if (data.pages <= 1) { div.innerHTML = ""; return; }
+            let html = `<button ${data.page <= 1 ? 'disabled' : ''} onclick="currentPage=${data.page - 1};loadProducts()">Prev</button>`;
+            for (let i = 1; i <= data.pages; i++) {
+                html += `<button class="${i === data.page ? 'active' : ''}" onclick="currentPage=${i};loadProducts()">${i}</button>`;
+            }
+            html += `<button ${data.page >= data.pages ? 'disabled' : ''} onclick="currentPage=${data.page + 1};loadProducts()">Next</button>`;
+            div.innerHTML = html;
+        }
+
+        function openAddModal() {
+            document.getElementById("modalTitle").textContent = "Add Product";
+            document.getElementById("productForm").reset();
+            document.getElementById("productId").value = "";
+            openModal("productModal");
+        }
+
+        async function editProduct(id) {
+            try {
+                const data = await api.get("/products/" + id);
+                const p = data.product;
+                document.getElementById("modalTitle").textContent = "Edit Product";
+                document.getElementById("productId").value = p.id;
+                document.getElementById("prodName").value = p.name;
+                document.getElementById("prodSku").value = p.sku;
+                document.getElementById("prodDesc").value = p.description || "";
+                document.getElementById("prodQty").value = p.quantity;
+                document.getElementById("prodPrice").value = p.unit_price;
+                const catSel = document.getElementById("prodCategory");
+                const catOpt = Array.from(catSel.options).find(o => o.text === p.category);
+                catSel.value = catOpt ? catOpt.value : "";
+                document.getElementById("prodReorder").value = p.reorder_level;
+                document.getElementById("prodBarcode").value = p.barcode || "";
+                openModal("productModal");
+            } catch (e) {
+                showToast("Failed to load product: " + e.message, "error");
+            }
+        }
+
+        async function saveProduct(e) {
+            e.preventDefault();
+            const id = document.getElementById("productId").value;
+            const catSel = document.getElementById("prodCategory");
+            const catVal = catSel.value;
+            const catText = catVal ? catSel.options[catSel.selectedIndex].text : "General";
+            const body = {
+                name: document.getElementById("prodName").value,
+                sku: document.getElementById("prodSku").value,
+                description: document.getElementById("prodDesc").value,
+                quantity: parseInt(document.getElementById("prodQty").value) || 0,
+                unit_price: parseFloat(document.getElementById("prodPrice").value),
+                category: catText,
+                category_id: catVal ? parseInt(catVal) : null,
+                reorder_level: parseInt(document.getElementById("prodReorder").value) || 10,
+                barcode: document.getElementById("prodBarcode").value || null,
+            };
+
+            try {
+                if (id) {
+                    await api.put("/products/" + id, body);
+                    showToast("Product updated successfully", "success");
+                } else {
+                    await api.post("/products/", body);
+                    showToast("Product added successfully", "success");
+                }
+                closeModal("productModal");
+                loadProducts();
+            } catch (e) {
+                showToast(e.message, "error");
+            }
+        }
+
+        async function deleteProduct(id) {
+            if (!confirm("Delete this product?")) return;
+            try {
+                await api.delete("/products/" + id);
+                showToast("Product deleted", "success");
+                loadProducts();
+            } catch (e) {
+                showToast(e.message, "error");
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Devices - Smart Inventory</title>
+    <link rel="stylesheet" href="../static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-icon">SI</div>
+                <div>
+                    <h1>Smart Inventory</h1>
+                    <small>Management System</small>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">Main</div>
+                <a class="nav-item" data-page="dashboard" href="dashboard.html">
+                    <i data-feather="layout-dashboard"></i> Dashboard
+                </a>
+                <a class="nav-item" data-page="products" href="products.html">
+                    <i data-feather="package"></i> Products
+                </a>
+                <a class="nav-item" data-page="inventory" href="inventory.html">
+                    <i data-feather="archive"></i> Inventory
+                </a>
+                <a class="nav-item" data-page="sales" href="sales.html">
+                    <i data-feather="shopping-cart"></i> Sales
+                </a>
+                <a class="nav-item" data-page="alerts" href="alerts.html">
+                    <i data-feather="alert-triangle"></i> Alerts
+                </a>
+                <div class="nav-section">Integrations</div>
+                <a class="nav-item active" data-page="iot" href="iot.html">
+                    <i data-feather="radio"></i> IoT Devices
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <a class="nav-item" href="login.html" onclick="return confirm('Logout?')">
+                    <i data-feather="log-out"></i> Logout
+                </a>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="page-header">
+                <button class="menu-toggle" id="menuToggle">&#9776;</button>
+                <h1>IoT Devices</h1>
+                <div class="header-actions">
+                    <button class="btn btn-primary" id="startSimBtn">Start Simulator</button>
+                    <button class="btn btn-secondary" id="refreshBtn">Refresh</button>
+                </div>
+            </header>
+
+            <div class="stats-grid" id="iotStats">
+                <div class="stat-card">
+                    <div class="stat-label">Registered Devices</div>
+                    <div class="stat-value" id="statDevices">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Events</div>
+                    <div class="stat-value" id="statEvents">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Scans</div>
+                    <div class="stat-value" id="statScans">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Unprocessed</div>
+                    <div class="stat-value" id="statUnprocessed">--</div>
+                </div>
+            </div>
+
+            <section class="card">
+                <div class="card-header">
+                    <h2>Devices</h2>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table" id="devicesTable">
+                        <thead>
+                            <tr>
+                                <th>Device ID</th>
+                                <th>Type</th>
+                                <th>Location</th>
+                                <th>Events</th>
+                                <th>Last Seen</th>
+                                <th>Avg Battery</th>
+                            </tr>
+                        </thead>
+                        <tbody id="devicesBody">
+                            <tr><td colspan="6" class="empty-state">No devices found</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-header">
+                    <h2>Recent Events</h2>
+                    <div class="card-filters">
+                        <select id="deviceFilter" class="form-input">
+                            <option value="">All Devices</option>
+                        </select>
+                        <select id="typeFilter" class="form-input">
+                            <option value="">All Types</option>
+                            <option value="barcode_scanner">Barcode Scanner</option>
+                            <option value="rfid_reader">RFID Reader</option>
+                            <option value="temperature_sensor">Temperature Sensor</option>
+                            <option value="weight_scale">Weight Scale</option>
+                        </select>
+                        <button class="btn btn-sm" id="filterBtn">Filter</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table" id="eventsTable">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Device</th>
+                                <th>Event</th>
+                                <th>Data</th>
+                                <th>Location</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="eventsBody">
+                            <tr><td colspan="6" class="empty-state">No events yet</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pagination" id="eventsPagination"></div>
+            </section>
+        </main>
+    </div>
+
+    <script src="../static/js/app.js"></script>
+    <script>
+        feather.replace();
+        let currentPage = 1;
+        let simulatorRunning = false;
+
+        function loadStats() {
+            api.get('/api/iot/stats').then(data => {
+                document.getElementById('statDevices').textContent = data.registered_devices || 0;
+                document.getElementById('statEvents').textContent = data.total_events || 0;
+                document.getElementById('statScans').textContent = data.total_scans || 0;
+                document.getElementById('statUnprocessed').textContent = data.unprocessed_events || 0;
+            }).catch(() => {});
+        }
+
+        function loadDevices() {
+            api.get('/api/iot/devices').then(data => {
+                const tbody = document.getElementById('devicesBody');
+                const filter = document.getElementById('deviceFilter');
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No devices found</td></tr>';
+                    filter.innerHTML = '<option value="">All Devices</option>';
+                    return;
+                }
+                tbody.innerHTML = data.map(d => `
+                    <tr>
+                        <td><strong>${d.device_id}</strong></td>
+                        <td><span class="badge badge-${d.device_type === 'rfid_reader' ? 'warning' : 'info'}">${d.device_type.replace(/_/g, ' ')}</span></td>
+                        <td>${d.location || '--'}</td>
+                        <td>${d.event_count}</td>
+                        <td>${d.last_seen ? new Date(d.last_seen).toLocaleString() : '--'}</td>
+                        <td>${d.avg_battery != null ? d.avg_battery + '%' : '--'}</td>
+                    </tr>
+                `).join('');
+                filter.innerHTML = '<option value="">All Devices</option>' +
+                    data.map(d => `<option value="${d.device_id}">${d.device_id}</option>`).join('');
+            }).catch(() => {});
+        }
+
+        function loadEvents(page) {
+            page = page || currentPage;
+            const deviceId = document.getElementById('deviceFilter').value;
+            const type = document.getElementById('typeFilter').value;
+            let url = `/api/iot/events?page=${page}&per_page=20`;
+            if (deviceId) url += `&device_id=${encodeURIComponent(deviceId)}`;
+            if (type) url += `&device_type=${encodeURIComponent(type)}`;
+
+            api.get(url).then(data => {
+                const tbody = document.getElementById('eventsBody');
+                if (!data.events || data.events.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No events found</td></tr>';
+                    document.getElementById('eventsPagination').innerHTML = '';
+                    return;
+                }
+                currentPage = data.page;
+                tbody.innerHTML = data.events.map(e => {
+                    const eventIcon = e.event_type === 'error' ? '&#9888;' :
+                                      e.event_type === 'heartbeat' ? '&#9835;' :
+                                      e.event_type === 'scan' ? '&#9776;' :
+                                      e.event_type === 'tag_read' ? '&#9881;' : '&#9679;';
+                    const statusBadge = e.is_processed ?
+                        '<span class="badge badge-success">Processed</span>' :
+                        '<span class="badge badge-warning">Pending</span>';
+                    const dataStr = e.barcode_data || e.rfid_epc || e.error_message || '--';
+                    const productInfo = e.product_name ? `${e.product_name} (${e.product_sku})` : '';
+                    return `<tr>
+                        <td>${new Date(e.created_at).toLocaleTimeString()}</td>
+                        <td>${e.device_id}</td>
+                        <td><span class="badge badge-info">${eventIcon} ${e.event_type}</span></td>
+                        <td title="${dataStr}">${dataStr.substring(0, 30)}${dataStr.length > 30 ? '...' : ''}${productInfo ? '<br><small>' + productInfo + '</small>' : ''}</td>
+                        <td>${e.location || '--'}</td>
+                        <td>${statusBadge}</td>
+                    </tr>`;
+                }).join('');
+
+                const totalPages = data.pages || 1;
+                const pagination = document.getElementById('eventsPagination');
+                let html = '';
+                if (data.page > 1) html += `<button class="btn btn-sm page-btn" data-page="${data.page - 1}">Prev</button>`;
+                html += `<span class="page-info">Page ${data.page} of ${totalPages}</span>`;
+                if (data.page < totalPages) html += `<button class="btn btn-sm page-btn" data-page="${data.page + 1}">Next</button>`;
+                pagination.innerHTML = html;
+                pagination.querySelectorAll('.page-btn').forEach(btn => {
+                    btn.addEventListener('click', () => loadEvents(parseInt(btn.dataset.page)));
+                });
+            }).catch(() => {});
+        }
+
+        function startSimulator() {
+            const btn = document.getElementById('startSimBtn');
+            btn.disabled = true;
+            btn.textContent = 'Starting...';
+            api.post('/iot/simulator/start')
+                .then(data => {
+                    simulatorRunning = true;
+                    btn.textContent = 'Simulator Running';
+                    btn.classList.remove('btn-primary');
+                    btn.classList.add('btn-success');
+                    showToast('IoT simulator started', 'success');
+                })
+                .catch(() => {
+                    showToast('Could not start simulator (is server running?)', 'error');
+                    btn.disabled = false;
+                    btn.textContent = 'Start Simulator';
+                });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+            loadDevices();
+            loadEvents(1);
+
+            document.getElementById('refreshBtn').addEventListener('click', () => {
+                loadStats();
+                loadDevices();
+                loadEvents(currentPage);
+            });
+
+            document.getElementById('filterBtn').addEventListener('click', () => {
+                loadEvents(1);
+            });
+
+            document.getElementById('startSimBtn').addEventListener('click', startSimulator);
+
+            setInterval(() => {
+                loadStats();
+            }, 10000);
+        });
+    </script>
+</body>
+</html>

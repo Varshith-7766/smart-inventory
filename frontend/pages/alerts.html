@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alerts — Smart Inventory</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-icon">SI</div>
+                <div><h1>Smart Inventory</h1><small>Management System</small></div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">Main</div>
+                <a class="nav-item" data-page="dashboard" href="dashboard.html"><i data-feather="layout-dashboard"></i> Dashboard</a>
+                <a class="nav-item" data-page="products" href="products.html"><i data-feather="package"></i> Products</a>
+                <a class="nav-item" data-page="inventory" href="inventory.html"><i data-feather="archive"></i> Inventory</a>
+                <a class="nav-item" data-page="sales" href="sales.html"><i data-feather="shopping-cart"></i> Sales</a>
+                <a class="nav-item active" data-page="alerts" href="alerts.html"><i data-feather="alert-triangle"></i> Alerts</a>
+            </nav>
+            <div class="sidebar-footer">
+                <a class="nav-item" href="login.html" onclick="return confirm('Logout?')"><i data-feather="log-out"></i> Logout</a>
+            </div>
+        </aside>
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="hamburger" id="hamburger">&#9776;</button>
+                    <h2 class="page-title">Low Stock Alerts</h2>
+                </div>
+                <div class="topbar-right">
+                    <button class="theme-toggle" id="themeToggle"><i data-feather="moon"></i></button>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <!-- Summary -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon red"><i data-feather="alert-triangle"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-label">Critical Alerts</div>
+                            <div class="stat-value" id="alertCritical">--</div>
+                            <div class="stat-change">Below reorder level</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon yellow"><i data-feather="clock"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-label">Needs Attention</div>
+                            <div class="stat-value" id="alertWarning">--</div>
+                            <div class="stat-change">Within 20% of reorder</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon blue"><i data-feather="check-circle"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-label">Healthy Stock</div>
+                            <div class="stat-value" id="alertHealthy">--</div>
+                            <div class="stat-change">Above reorder level</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alerts table -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i data-feather="list"></i> All Products Stock Status</h3>
+                        <button class="btn btn-sm btn-secondary" onclick="loadAlerts()"><i data-feather="refresh-cw"></i> Refresh</button>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr><th>Product</th><th>SKU</th><th>Category</th><th>Current Qty</th><th>Reorder Level</th><th>Shortfall</th><th>Status</th><th>Action</th></tr>
+                            </thead>
+                            <tbody id="alertsBody">
+                                <tr><td colspan="8" class="empty-state">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Quick Stock Adjust Modal -->
+    <div class="modal-overlay" id="quickStockModal">
+        <div class="modal" style="max-width:420px;">
+            <div class="modal-header">
+                <h2>Quick Restock</h2>
+                <button class="modal-close" onclick="closeModal('quickStockModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="quickStockForm" onsubmit="quickRestock(event)">
+                    <input type="hidden" id="quickProductId">
+                    <p style="margin-bottom:1rem;color:var(--text-secondary);">
+                        Restock <strong id="quickProductName"></strong>
+                    </p>
+                    <div class="form-group">
+                        <label>Quantity to Add</label>
+                        <input type="number" class="form-control" id="quickQty" min="1" value="50" required>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('quickStockModal')">Cancel</button>
+                        <button type="submit" class="btn btn-success">Restock</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="../static/js/app.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", loadAlerts);
+
+        async function loadAlerts() {
+            try {
+                // Get all products to compute stock status
+                const allData = await api.get("/products/?per_page=500");
+                const products = allData.products;
+                const tbody = document.getElementById("alertsBody");
+
+                // Get alerts
+                const alertData = await api.get("/stock/alerts");
+                const alertMap = {};
+                alertData.alerts.forEach(a => { alertMap[a.product_id] = a; });
+
+                let critical = 0, warning = 0, healthy = 0;
+
+                if (products.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><i data-feather="package"></i><h3>No products</h3></td></tr>';
+                } else {
+                    tbody.innerHTML = products.map(p => {
+                        const isLow = p.quantity <= p.reorder_level;
+                        const nearLow = !isLow && p.quantity <= p.reorder_level * 1.2;
+                        const shortfall = isLow ? p.reorder_level - p.quantity : 0;
+
+                        if (isLow) critical++;
+                        else if (nearLow) warning++;
+                        else healthy++;
+
+                        let status, badgeClass;
+                        if (isLow) { status = "Critical"; badgeClass = "badge-danger"; }
+                        else if (nearLow) { status = "Warning"; badgeClass = "badge-warning"; }
+                        else { status = "In Stock"; badgeClass = "badge-success"; }
+
+                        return `<tr>
+                            <td><strong>${p.name}</strong></td>
+                            <td style="color:var(--text-muted)">${p.sku}</td>
+                            <td><span class="badge badge-neutral">${p.category || "General"}</span></td>
+                            <td style="font-weight:700;color:${isLow ? 'var(--danger)' : nearLow ? 'var(--warning)' : 'var(--success)'}">${p.quantity}</td>
+                            <td>${p.reorder_level}</td>
+                            <td style="color:var(--danger)">${shortfall > 0 ? shortfall : '-'}</td>
+                            <td><span class="badge ${badgeClass}">${status}</span></td>
+                            <td>
+                                ${isLow ? `<button class="btn btn-sm btn-success" onclick="openQuickRestock(${p.id},'${p.name}')">Restock</button>` :
+                                nearLow ? `<button class="btn btn-sm btn-warning" onclick="openQuickRestock(${p.id},'${p.name}')">Restock</button>` :
+                                '<span style="color:var(--text-muted);font-size:0.78rem;">OK</span>'}
+                            </td>
+                        </tr>`;
+                    }).join("");
+                }
+
+                document.getElementById("alertCritical").textContent = critical;
+                document.getElementById("alertWarning").textContent = warning;
+                document.getElementById("alertHealthy").textContent = healthy;
+
+            } catch (e) {
+                document.getElementById("alertsBody").innerHTML =
+                    '<tr><td colspan="8" class="empty-state"><i data-feather="alert-circle"></i><h3>Error loading alerts</h3><p>Make sure the API server is running.</p></td></tr>';
+            }
+            refreshIcons();
+        }
+
+        function openQuickRestock(id, name) {
+            document.getElementById("quickProductId").value = id;
+            document.getElementById("quickProductName").textContent = name;
+            document.getElementById("quickQty").value = 50;
+            openModal("quickStockModal");
+        }
+
+        async function quickRestock(e) {
+            e.preventDefault();
+            const productId = parseInt(document.getElementById("quickProductId").value);
+            const qty = parseInt(document.getElementById("quickQty").value);
+
+            try {
+                await api.post("/stock/adjust", {
+                    product_id: productId,
+                    quantity_change: qty,
+                    reason: "Quick restock from alerts page",
+                });
+                showToast("Restocked successfully", "success");
+                closeModal("quickStockModal");
+                loadAlerts();
+            } catch (e) {
+                showToast(e.message, "error");
+            }
+        }
+    </script>
+</body>
+</html>

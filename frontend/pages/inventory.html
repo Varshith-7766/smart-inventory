@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory — Smart Inventory</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-icon">SI</div>
+                <div><h1>Smart Inventory</h1><small>Management System</small></div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">Main</div>
+                <a class="nav-item" data-page="dashboard" href="dashboard.html"><i data-feather="layout-dashboard"></i> Dashboard</a>
+                <a class="nav-item" data-page="products" href="products.html"><i data-feather="package"></i> Products</a>
+                <a class="nav-item active" data-page="inventory" href="inventory.html"><i data-feather="archive"></i> Inventory</a>
+                <a class="nav-item" data-page="sales" href="sales.html"><i data-feather="shopping-cart"></i> Sales</a>
+                <a class="nav-item" data-page="alerts" href="alerts.html"><i data-feather="alert-triangle"></i> Alerts</a>
+            </nav>
+            <div class="sidebar-footer">
+                <a class="nav-item" href="login.html" onclick="return confirm('Logout?')"><i data-feather="log-out"></i> Logout</a>
+            </div>
+        </aside>
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="hamburger" id="hamburger">&#9776;</button>
+                    <h2 class="page-title">Inventory</h2>
+                </div>
+                <div class="topbar-right">
+                    <button class="btn btn-primary" onclick="openStockModal()"><i data-feather="plus"></i> Adjust Stock</button>
+                    <button class="theme-toggle" id="themeToggle"><i data-feather="moon"></i></button>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <!-- Summary cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon blue"><i data-feather="box"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-label">Total Items</div>
+                            <div class="stat-value" id="invTotalItems">--</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green"><i data-feather="check-circle"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-label">In Stock</div>
+                            <div class="stat-value" id="invInStock">--</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon red"><i data-feather="alert-triangle"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-label">Low Stock</div>
+                            <div class="stat-value" id="invLowStock">--</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon yellow"><i data-feather="clock"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-label">Out of Stock</div>
+                            <div class="stat-value" id="invOutOfStock">--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stock movement log -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i data-feather="activity"></i> Stock Movement Log</h3>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr><th>Date</th><th>Product</th><th>Type</th><th>Change</th><th>Reason</th></tr>
+                            </thead>
+                            <tbody id="movementsBody">
+                                <tr><td colspan="5" class="empty-state">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination" id="movementPagination"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Stock Adjust Modal -->
+    <div class="modal-overlay" id="stockModal">
+        <div class="modal" style="max-width:420px;">
+            <div class="modal-header">
+                <h2>Adjust Stock</h2>
+                <button class="modal-close" onclick="closeModal('stockModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="stockForm" onsubmit="adjustStock(event)">
+                    <div class="form-group">
+                        <label>Product</label>
+                        <select class="form-control" id="stockProductId" required>
+                            <option value="">Select product...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Quantity Change <small>(positive = add, negative = remove)</small></label>
+                        <input type="number" class="form-control" id="stockChange" required placeholder="e.g. 50 or -10">
+                    </div>
+                    <div class="form-group">
+                        <label>Reason</label>
+                        <input type="text" class="form-control" id="stockReason" placeholder="e.g. New shipment received">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('stockModal')">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Apply</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="../static/js/app.js"></script>
+    <script>
+        let movPage = 1;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            loadInventoryStats();
+            loadMovements();
+            loadProductSelect();
+        });
+
+        async function loadInventoryStats() {
+            try {
+                const data = await api.get("/products/");
+                const total = data.total || 0;
+                document.getElementById("invTotalItems").textContent = total;
+
+                // Get low stock
+                const low = await api.get("/products/low-stock");
+                const lowCount = low.count || 0;
+                document.getElementById("invLowStock").textContent = lowCount;
+                document.getElementById("invInStock").textContent = total - lowCount;
+
+                // Count out of stock (qty = 0)
+                const outOf = data.products.filter(p => p.quantity === 0).length;
+                document.getElementById("invOutOfStock").textContent = outOf;
+            } catch (e) {
+                console.error("Stats error:", e);
+            }
+            refreshIcons();
+        }
+
+        async function loadMovements() {
+            try {
+                const data = await api.get("/stock/movements?page=" + movPage + "&per_page=15");
+                const tbody = document.getElementById("movementsBody");
+
+                if (data.movements.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><i data-feather="clock"></i><h3>No movements recorded</h3></td></tr>';
+                } else {
+                    tbody.innerHTML = data.movements.map(m => {
+                        const isPositive = m.quantity_change > 0;
+                        return `<tr>
+                            <td style="white-space:nowrap">${dateTimeStr(m.created_at)}</td>
+                            <td><strong>${m.product_name}</strong></td>
+                            <td><span class="badge badge-${isPositive ? 'success' : 'danger'}">${m.movement_type}</span></td>
+                            <td style="font-weight:600;color:${isPositive ? 'var(--success)' : 'var(--danger)'}">${isPositive ? '+' : ''}${m.quantity_change}</td>
+                            <td style="color:var(--text-muted)">${m.notes || m.reason || '-'}</td>
+                        </tr>`;
+                    }).join("");
+                }
+
+                // Pagination
+                const div = document.getElementById("movementPagination");
+                if (data.pages <= 1) { div.innerHTML = ""; return; }
+                let html = "";
+                for (let i = 1; i <= data.pages; i++) {
+                    html += `<button class="${i === data.page ? 'active' : ''}" onclick="movPage=${i};loadMovements()">${i}</button>`;
+                }
+                div.innerHTML = html;
+            } catch (e) {
+                document.getElementById("movementsBody").innerHTML =
+                    '<tr><td colspan="5" class="empty-state">Error loading movements</td></tr>';
+            }
+            refreshIcons();
+        }
+
+        async function loadProductSelect() {
+            try {
+                const data = await api.get("/products/?per_page=500");
+                const sel = document.getElementById("stockProductId");
+                sel.innerHTML = '<option value="">Select product...</option>' +
+                    data.products.map(p => `<option value="${p.id}">${p.name} (${p.sku}) — Qty: ${p.quantity}</option>`).join("");
+            } catch (e) { console.error(e); }
+        }
+
+        function openStockModal() {
+            loadProductSelect();
+            document.getElementById("stockForm").reset();
+            openModal("stockModal");
+        }
+
+        async function adjustStock(e) {
+            e.preventDefault();
+            const productId = parseInt(document.getElementById("stockProductId").value);
+            const change = parseInt(document.getElementById("stockChange").value);
+            const reason = document.getElementById("stockReason").value;
+
+            if (!productId) { showToast("Select a product", "error"); return; }
+            if (!change || change === 0) { showToast("Enter a non-zero quantity change", "error"); return; }
+
+            try {
+                await api.post("/stock/adjust", {
+                    product_id: productId,
+                    quantity_change: change,
+                    reason: reason || "Manual adjustment",
+                });
+                showToast("Stock adjusted successfully", "success");
+                closeModal("stockModal");
+                loadInventoryStats();
+                loadMovements();
+            } catch (e) {
+                showToast(e.message, "error");
+            }
+        }
+    </script>
+</body>
+</html>

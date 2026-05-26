@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales — Smart Inventory</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-icon">SI</div>
+                <div><h1>Smart Inventory</h1><small>Management System</small></div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">Main</div>
+                <a class="nav-item" data-page="dashboard" href="dashboard.html"><i data-feather="layout-dashboard"></i> Dashboard</a>
+                <a class="nav-item" data-page="products" href="products.html"><i data-feather="package"></i> Products</a>
+                <a class="nav-item" data-page="inventory" href="inventory.html"><i data-feather="archive"></i> Inventory</a>
+                <a class="nav-item active" data-page="sales" href="sales.html"><i data-feather="shopping-cart"></i> Sales</a>
+                <a class="nav-item" data-page="alerts" href="alerts.html"><i data-feather="alert-triangle"></i> Alerts</a>
+            </nav>
+            <div class="sidebar-footer">
+                <a class="nav-item" href="login.html" onclick="return confirm('Logout?')"><i data-feather="log-out"></i> Logout</a>
+            </div>
+        </aside>
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="hamburger" id="hamburger">&#9776;</button>
+                    <h2 class="page-title">Sales History</h2>
+                </div>
+                <div class="topbar-right">
+                    <button class="btn btn-primary" onclick="openSaleModal()"><i data-feather="plus"></i> Record Sale</button>
+                    <button class="theme-toggle" id="themeToggle"><i data-feather="moon"></i></button>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <!-- Summary -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon green"><i data-feather="dollar-sign"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-label">Total Revenue</div>
+                            <div class="stat-value" id="saleTotalRevenue">--</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon blue"><i data-feather="shopping-cart"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-label">Total Sales</div>
+                            <div class="stat-value" id="saleTotalCount">--</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon yellow"><i data-feather="users"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-label">Average per Sale</div>
+                            <div class="stat-value" id="saleAvg">--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sales table -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i data-feather="list"></i> Sales Records</h3>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr><th>Date</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th><th>Actions</th></tr>
+                            </thead>
+                            <tbody id="salesBody">
+                                <tr><td colspan="6" class="empty-state">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination" id="salePagination"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Record Sale Modal -->
+    <div class="modal-overlay" id="saleModal">
+        <div class="modal" style="max-width:600px;">
+            <div class="modal-header">
+                <h2>Record Sale</h2>
+                <button class="modal-close" onclick="closeModal('saleModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="saleForm" onsubmit="recordSale(event)">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Customer Name</label>
+                            <input type="text" class="form-control" id="saleCustomer" placeholder="Walk-in customer">
+                        </div>
+                        <div class="form-group">
+                            <label>Payment Method</label>
+                            <select class="form-control" id="salePayment">
+                                <option value="cash">Cash</option>
+                                <option value="card">Card</option>
+                                <option value="bank_transfer">Bank Transfer</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <h4 style="margin:1rem 0 0.5rem;font-size:0.9rem;">Sale Items</h4>
+                    <div id="saleItemsContainer">
+                        <div class="sale-item-row">
+                            <select class="form-control" required>
+                                <option value="">Select product...</option>
+                            </select>
+                            <input type="number" class="form-control" placeholder="Qty" min="1" value="1" required>
+                            <input type="number" class="form-control" placeholder="Price" step="0.01" required>
+                            <button type="button" class="btn btn-sm btn-danger" onclick="this.parentElement.remove()" title="Remove">&times;</button>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-secondary mt-1" onclick="addSaleRow()"><i data-feather="plus"></i> Add Item</button>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('saleModal')">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="recordSaleBtn">Record Sale</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sale Detail Modal -->
+    <div class="modal-overlay" id="saleDetailModal">
+        <div class="modal" style="max-width:500px;">
+            <div class="modal-header">
+                <h2>Sale Details</h2>
+                <button class="modal-close" onclick="closeModal('saleDetailModal')">&times;</button>
+            </div>
+            <div class="modal-body" id="saleDetailBody"></div>
+        </div>
+    </div>
+
+    <script src="../static/js/app.js"></script>
+    <script>
+        let salePage = 1;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            loadSales();
+            loadSaleProducts();
+        });
+
+        async function loadSales() {
+            try {
+                const data = await api.get("/sales/?page=" + salePage + "&per_page=20");
+                const tbody = document.getElementById("salesBody");
+
+                let totalRev = 0;
+                if (data.sales.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><i data-feather="shopping-cart"></i><h3>No sales recorded</h3><p>Record your first sale above.</p></td></tr>';
+                } else {
+                    tbody.innerHTML = data.sales.map(s => {
+                        totalRev += s.total_amount;
+                        return `<tr>
+                            <td style="white-space:nowrap">${dateTimeStr(s.sale_date)}</td>
+                            <td>${s.customer_name || '-'}</td>
+                            <td><span class="badge badge-info">${s.items.length} item(s)</span></td>
+                            <td><strong>$${Number(s.total_amount).toFixed(2)}</strong></td>
+                            <td><span class="badge badge-neutral">${s.payment_method || 'cash'}</span></td>
+                            <td><button class="btn btn-sm btn-secondary" onclick="viewSale(${s.id})">View</button></td>
+                        </tr>`;
+                    }).join("");
+                }
+
+                // Summary
+                document.getElementById("saleTotalRevenue").textContent = "$" + totalRev.toFixed(2);
+                document.getElementById("saleTotalCount").textContent = data.total;
+                document.getElementById("saleAvg").textContent = data.total > 0 ? "$" + (totalRev / data.total).toFixed(2) : "$0.00";
+
+                // Pagination
+                const div = document.getElementById("salePagination");
+                if (data.pages <= 1) { div.innerHTML = ""; return; }
+                let html = `<button ${salePage <= 1 ? 'disabled' : ''} onclick="salePage=${salePage - 1};loadSales()">Prev</button>`;
+                for (let i = 1; i <= data.pages; i++) {
+                    html += `<button class="${i === salePage ? 'active' : ''}" onclick="salePage=${i};loadSales()">${i}</button>`;
+                }
+                html += `<button ${salePage >= data.pages ? 'disabled' : ''} onclick="salePage=${salePage + 1};loadSales()">Next</button>`;
+                div.innerHTML = html;
+            } catch (e) {
+                document.getElementById("salesBody").innerHTML = '<tr><td colspan="6" class="empty-state">Error loading sales</td></tr>';
+            }
+            refreshIcons();
+        }
+
+        async function loadSaleProducts() {
+            try {
+                const data = await api.get("/products/?per_page=500");
+                const opts = data.products.map(p =>
+                    `<option value="${p.id}" data-price="${p.unit_price}">${p.name} (${p.sku}) — qty: ${p.quantity}</option>`
+                ).join("");
+                document.querySelectorAll(".sale-item-row select").forEach(sel => {
+                    sel.innerHTML = '<option value="">Select product...</option>' + opts;
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        function addSaleRow() {
+            const container = document.getElementById("saleItemsContainer");
+            const row = document.createElement("div");
+            row.className = "sale-item-row";
+            row.innerHTML = `
+                <select class="form-control" required><option value="">Select product...</option></select>
+                <input type="number" class="form-control" placeholder="Qty" min="1" value="1" required>
+                <input type="number" class="form-control" placeholder="Price" step="0.01" required>
+                <button type="button" class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">&times;</button>
+            `;
+            container.appendChild(row);
+            // Copy product options
+            const firstOpts = document.querySelector(".sale-item-row select").innerHTML;
+            row.querySelector("select").innerHTML = firstOpts;
+
+            // Auto-fill price on product select
+            row.querySelector("select").addEventListener("change", function() {
+                const opt = this.options[this.selectedIndex];
+                const price = opt.dataset.price;
+                if (price) row.querySelectorAll("input[type=number]")[1].value = price;
+            });
+            refreshIcons();
+        }
+
+        function openSaleModal() {
+            document.getElementById("saleForm").reset();
+            // Reset items to one row
+            const container = document.getElementById("saleItemsContainer");
+            container.innerHTML = `
+                <div class="sale-item-row">
+                    <select class="form-control" required><option value="">Select product...</option></select>
+                    <input type="number" class="form-control" placeholder="Qty" min="1" value="1" required>
+                    <input type="number" class="form-control" placeholder="Price" step="0.01" required>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">&times;</button>
+                </div>
+            `;
+            loadSaleProducts();
+            // Auto-fill price on first row
+            document.querySelector(".sale-item-row select").addEventListener("change", function() {
+                const opt = this.options[this.selectedIndex];
+                const price = opt.dataset.price;
+                if (price) this.parentElement.querySelectorAll("input[type=number]")[1].value = price;
+            });
+            openModal("saleModal");
+        }
+
+        async function recordSale(e) {
+            e.preventDefault();
+            const btn = document.getElementById("recordSaleBtn");
+            btn.disabled = true;
+            btn.textContent = "Recording...";
+
+            const rows = document.querySelectorAll(".sale-item-row");
+            const items = [];
+            rows.forEach(row => {
+                const sel = row.querySelector("select");
+                if (sel.value) {
+                    items.push({
+                        product_id: parseInt(sel.value),
+                        quantity: parseInt(row.querySelectorAll("input")[0].value) || 1,
+                        unit_price: parseFloat(row.querySelectorAll("input")[1].value) || 0,
+                    });
+                }
+            });
+
+            if (items.length === 0) {
+                showToast("Add at least one item", "error");
+                btn.disabled = false;
+                btn.textContent = "Record Sale";
+                return;
+            }
+
+            try {
+                await api.post("/sales/", {
+                    customer_name: document.getElementById("saleCustomer").value,
+                    payment_method: document.getElementById("salePayment").value || "cash",
+                    items: items,
+                });
+                showToast("Sale recorded successfully", "success");
+                closeModal("saleModal");
+                loadSales();
+            } catch (e) {
+                showToast(e.message, "error");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Record Sale";
+            }
+            refreshIcons();
+        }
+
+        async function viewSale(id) {
+            try {
+                const data = await api.get("/sales/" + id);
+                const s = data.sale;
+                let html = `
+                    <p><strong>Date:</strong> ${dateTimeStr(s.sale_date)}</p>
+                    <p><strong>Customer:</strong> ${s.customer_name || 'Walk-in'}</p>
+                    <p><strong>Total:</strong> <span style="font-size:1.25rem;font-weight:700;">$${Number(s.total_amount).toFixed(2)}</span></p>
+                    <hr style="border-color:var(--border);margin:1rem 0;">
+                    <h4 style="margin-bottom:0.5rem;">Items</h4>
+                    <table class="table-container" style="width:100%;">
+                        <thead><tr><th>Product</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+                        <tbody>
+                            ${s.items.map(i => `
+                                <tr>
+                                    <td>${i.product_name || 'Product #' + i.product_id}</td>
+                                    <td>${i.quantity}</td>
+                                    <td>$${Number(i.unit_price).toFixed(2)}</td>
+                                    <td><strong>$${Number(i.total_price).toFixed(2)}</strong></td>
+                                </tr>
+                            `).join("")}
+                        </tbody>
+                    </table>`;
+                document.getElementById("saleDetailBody").innerHTML = html;
+                openModal("saleDetailModal");
+            } catch (e) {
+                showToast("Failed to load sale: " + e.message, "error");
+            }
+        }
+    </script>
+</body>
+</html>

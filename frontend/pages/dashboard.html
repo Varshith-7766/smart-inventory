@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — Smart Inventory</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-icon">SI</div>
+                <div>
+                    <h1>Smart Inventory</h1>
+                    <small>Management System</small>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">Main</div>
+                <a class="nav-item active" data-page="dashboard" href="dashboard.html">
+                    <i data-feather="layout-dashboard"></i> Dashboard
+                </a>
+                <a class="nav-item" data-page="products" href="products.html">
+                    <i data-feather="package"></i> Products
+                </a>
+                <a class="nav-item" data-page="inventory" href="inventory.html">
+                    <i data-feather="archive"></i> Inventory
+                </a>
+                <a class="nav-item" data-page="sales" href="sales.html">
+                    <i data-feather="shopping-cart"></i> Sales
+                </a>
+                <a class="nav-item" data-page="alerts" href="alerts.html">
+                    <i data-feather="alert-triangle"></i> Alerts
+                    <span class="badge" id="alertBadge" style="display:none">0</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <a class="nav-item" href="login.html" onclick="return confirm('Logout?')">
+                    <i data-feather="log-out"></i> Logout
+                </a>
+            </div>
+        </aside>
+
+        <!-- Overlay for mobile -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <!-- Main content -->
+        <main class="main-content">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="hamburger" id="hamburger">&#9776;</button>
+                    <h2 class="page-title">Dashboard</h2>
+                </div>
+                <div class="topbar-right">
+                    <button class="theme-toggle" id="themeToggle" title="Toggle theme">
+                        <i data-feather="moon"></i>
+                    </button>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <!-- Stats cards -->
+                <div class="stats-grid" id="statsGrid">
+                    <div class="stat-card">
+                        <div class="stat-icon blue"><i data-feather="box"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-label">Total Products</div>
+                            <div class="stat-value" id="statProducts">--</div>
+                            <div class="stat-change">Active in inventory</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green"><i data-feather="dollar-sign"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-label">Total Revenue</div>
+                            <div class="stat-value" id="statRevenue">--</div>
+                            <div class="stat-change">All time sales</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon yellow"><i data-feather="alert-triangle"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-label">Low Stock Items</div>
+                            <div class="stat-value" id="statLowStock">--</div>
+                            <div class="stat-change">Needs restocking</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon red"><i data-feather="trending-up"></i></div>
+                        <div class="stat-info">
+                            <div class="stat-label">Sales (30 days)</div>
+                            <div class="stat-value" id="statSales30d">--</div>
+                            <div class="stat-change">Last 30 days</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts row -->
+                <div class="stats-grid" style="grid-template-columns: 2fr 1fr;">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i data-feather="trending-up" style="width:16px;height:16px;vertical-align:middle;"></i> Sales Trend (30 days)</h3>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="salesChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i data-feather="pie-chart" style="width:16px;height:16px;vertical-align:middle;"></i> Stock by Category</h3>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent low stock alerts -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i data-feather="alert-triangle" style="width:16px;height:16px;vertical-align:middle;"></i> Low Stock Alerts</h3>
+                        <a href="alerts.html" class="btn btn-sm btn-secondary">View All</a>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr><th>Product</th><th>SKU</th><th>Quantity</th><th>Reorder Level</th><th>Status</th></tr>
+                            </thead>
+                            <tbody id="alertsBody">
+                                <tr><td colspan="5" class="empty-state">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script src="../static/js/app.js"></script>
+    <script>
+        // ---- Load dashboard data ----
+        let salesChartInstance = null;
+        let categoryChartInstance = null;
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            try {
+                // Stats
+                const stats = await api.get("/dashboard/stats");
+                document.getElementById("statProducts").textContent = stats.total_products || 0;
+                document.getElementById("statRevenue").textContent = "$" + (stats.total_sales || 0).toLocaleString();
+                document.getElementById("statLowStock").textContent = stats.low_stock_alerts || 0;
+                document.getElementById("statSales30d").textContent = "$" + (stats.recent_sales_30d || 0).toLocaleString();
+
+                // Update alert badge
+                const badge = document.getElementById("alertBadge");
+                if (stats.low_stock_alerts > 0) {
+                    badge.textContent = stats.low_stock_alerts;
+                    badge.style.display = "inline";
+                }
+
+                // Low stock alerts list
+                const alerts = await api.get("/dashboard/low-stock");
+                const tbody = document.getElementById("alertsBody");
+                if (alerts.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No low stock alerts</td></tr>';
+                } else {
+                    tbody.innerHTML = alerts.map(a => `
+                        <tr>
+                            <td><strong>${a.product_name}</strong></td>
+                            <td>${a.sku || "--"}</td>
+                            <td class="badge badge-danger">${a.current_quantity}</td>
+                            <td>${a.reorder_level}</td>
+                            <td><span class="badge badge-danger">Critical</span></td>
+                        </tr>
+                    `).join("");
+                }
+
+                // Sales chart (real data from API)
+                initSalesChart(stats.sales_trend || []);
+                initCategoryChart(stats.categories || []);
+
+            } catch (err) {
+                console.error("Dashboard error:", err);
+                document.getElementById("statsGrid").innerHTML =
+                    '<div class="card"><p style="color:var(--danger)">Failed to load dashboard. Make sure the API server is running.</p></div>';
+            }
+
+            refreshIcons();
+        });
+
+        function initSalesChart(salesTrend) {
+            const ctx = document.getElementById("salesChart").getContext("2d");
+            let days, data;
+            if (salesTrend.length > 0) {
+                days = salesTrend.map(d => {
+                    const dt = new Date(d.date);
+                    return dt.toLocaleDateString("en-US", {month:"short", day:"numeric"});
+                });
+                data = salesTrend.map(d => d.total);
+            } else {
+                const now = new Date();
+                days = Array.from({length: 30}, (_, i) => {
+                    const d = new Date(now);
+                    d.setDate(d.getDate() - 29 + i);
+                    return d.toLocaleDateString("en-US", {month:"short", day:"numeric"});
+                });
+                data = Array.from({length: 30}, () => 0);
+            }
+
+            salesChartInstance = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: days,
+                    datasets: [{
+                        label: "Sales ($)",
+                        data,
+                        borderColor: "#4f46e5",
+                        backgroundColor: "rgba(79,70,229,0.1)",
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointBackgroundColor: "#4f46e5",
+                    }],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: "rgba(0,0,0,0.05)" } },
+                        x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } },
+                    },
+                },
+            });
+        }
+
+        function initCategoryChart(categories) {
+            const ctx = document.getElementById("categoryChart").getContext("2d");
+            const colors = ["#4f46e5", "#10b981", "#f59e0b", "#3b82f6", "#94a3b8", "#ef4444", "#8b5cf6", "#ec4899"];
+            const labels = categories.length > 0 ? categories.map(c => c.name) : ["No data"];
+            const values = categories.length > 0 ? categories.map(c => c.count) : [1];
+            categoryChartInstance = new Chart(ctx, {
+                type: "doughnut",
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: ["#4f46e5", "#10b981", "#f59e0b", "#3b82f6", "#94a3b8"],
+                        borderWidth: 0,
+                    }],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: "bottom",
+                            labels: { padding: 12, usePointStyle: true, font: { size: 11 } },
+                        },
+                    },
+                    cutout: "65%",
+                },
+            });
+        }
+    </script>
+</body>
+</html>
