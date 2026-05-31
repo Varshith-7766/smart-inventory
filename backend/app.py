@@ -86,10 +86,10 @@ def create_app(test_config=None):
     db.init_app(app)
 
     # ---- Step 5: Import models so SQLAlchemy knows about them ----
-    from models import Product, Sale, SaleItem, Supplier, User, Category, InventoryLog, IoTDeviceLog, ReorderPrediction  # noqa: F401
-
-    # ---- Step 6: Create tables (if they don't exist yet) ----
     with app.app_context():
+        from models import Product, Sale, SaleItem, Supplier, User, Category, InventoryLog, IoTDeviceLog, ReorderPrediction  # noqa: F401
+
+        # ---- Step 6: Create tables (if they don't exist yet) ----
         db.create_all()
 
     # ---- Step 7: Register all route Blueprints ----
@@ -118,7 +118,13 @@ def create_app(test_config=None):
 
 
 # Create the app instance (used by Gunicorn in production)
-application = create_app()
+try:
+    application = create_app()
+except Exception as e:
+    import traceback
+    print(f"ERROR: Failed to create app: {e}")
+    traceback.print_exc()
+    raise
 
 # -------------------------------------------------------------------
 # Run the application
