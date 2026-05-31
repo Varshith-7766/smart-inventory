@@ -29,10 +29,14 @@ class Config:
         _raw_key = secrets.token_hex(32)
     SECRET_KEY = _raw_key
 
-    # --- MySQL Database ---
-    # Format: mysql+pymysql://username:password@host:port/database
-    # Must be set via environment variable or .env file
-    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL")
+    # --- Database ---
+    # Reads DATABASE_URL from environment (set on Render as postgresql://...)
+    # Render provides URLs starting with postgres:// which SQLAlchemy doesn't like,
+    # so we replace it with postgresql://
+    _db_url = os.getenv("DATABASE_URL", "sqlite:///inventory.db")
+    if _db_url and _db_url.startswith("postgres://"):
+        _db_url = _db_url.replace("postgres://", "postgresql://", 1)
+    SQLALCHEMY_DATABASE_URI = _db_url
     # Disable Flask-SQLAlchemy event system (saves memory)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
