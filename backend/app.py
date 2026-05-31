@@ -117,13 +117,13 @@ def create_app(test_config=None):
     return app
 
 
+# Create the app instance (used by Gunicorn in production)
+application = create_app()
+
 # -------------------------------------------------------------------
 # Run the application
 # -------------------------------------------------------------------
 if __name__ == "__main__":
-    # Create the app
-    application = create_app()
-
     # Read host/port from environment, with sensible defaults
     host = os.getenv("FLASK_HOST", "0.0.0.0")
     port = int(os.getenv("FLASK_PORT", 5000))

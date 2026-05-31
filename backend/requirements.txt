@@ -9,7 +9,8 @@ Flask==3.0.0
 Flask-CORS==4.0.0          # Cross-Origin Resource Sharing (frontend → API)
 
 # --- Database ---
-Flask-SQLAlchemy==3.1.1    # ORM — talk to MySQL with Python objects
+Flask-SQLAlchemy==3.1.1    # ORM — talk to database with Python objects
+psycopg2-binary==2.9.9     # PostgreSQL driver (used on Render)
 PyMySQL==1.1.0             # Pure-Python MySQL driver
 cryptography==41.0.7       # Required by PyMySQL for secure connections
 
