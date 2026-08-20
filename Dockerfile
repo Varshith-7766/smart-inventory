@@ -17,4 +17,5 @@ EXPOSE 5000
 
 WORKDIR /app/backend
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "app:create_app()"]
+# Render injects a dynamic $PORT; fall back to 5000 for local docker runs.
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-5000} --workers 2 app:application"]
