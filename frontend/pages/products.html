@@ -22,7 +22,7 @@
             </div>
             <nav class="sidebar-nav">
                 <div class="nav-section">Main</div>
-                <a class="nav-item" data-page="dashboard" href="dashboard.html"><i data-feather="layout-dashboard"></i> Dashboard</a>
+                <a class="nav-item" data-page="dashboard" href="dashboard.html"><i data-feather="layout"></i> Dashboard</a>
                 <a class="nav-item active" data-page="products" href="products.html"><i data-feather="package"></i> Products</a>
                 <a class="nav-item" data-page="inventory" href="inventory.html"><i data-feather="archive"></i> Inventory</a>
                 <a class="nav-item" data-page="sales" href="sales.html"><i data-feather="shopping-cart"></i> Sales</a>
@@ -157,8 +157,8 @@
                 const data = await api.get("/products/categories");
                 const filterSel = document.getElementById("categoryFilter");
                 const formSel = document.getElementById("prodCategory");
-                const nameOpts = data.map(c => `<option value="${c.name}">${c.name}</option>`).join("");
-                const idOpts = data.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
+                const nameOpts = data.map(c => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("");
+                const idOpts = data.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
                 filterSel.innerHTML = '<option value="">All Categories</option>' + nameOpts;
                 formSel.innerHTML = '<option value="">General</option>' + idOpts;
             } catch (e) { console.error("Categories error:", e); }
@@ -194,12 +194,12 @@
                     tbody.innerHTML = data.products.map(p => {
                         const low = p.quantity <= p.reorder_level;
                         return `<tr>
-                            <td><strong>${p.name}</strong></td>
-                            <td style="color:var(--text-muted)">${p.sku}</td>
-                            <td><span class="badge badge-neutral">${p.category || "General"}</span></td>
+                            <td><strong>${esc(p.name)}</strong></td>
+                            <td style="color:var(--text-muted)">${esc(p.sku)}</td>
+                            <td><span class="badge badge-neutral">${esc(p.category || "General")}</span></td>
                             <td class="${low ? 'badge badge-danger' : ''}">${p.quantity}</td>
                             <td>${p.reorder_level}</td>
-                            <td><strong>$${Number(p.unit_price).toFixed(2)}</strong></td>
+                            <td><strong>${currency(p.unit_price)}</strong></td>
                             <td>${low ? '<span class="badge badge-danger">Low Stock</span>' : '<span class="badge badge-success">In Stock</span>'}</td>
                             <td>
                                 <button class="btn btn-sm btn-secondary" onclick="editProduct(${p.id})"><i data-feather="edit-2" style="width:14px;height:14px;"></i></button>

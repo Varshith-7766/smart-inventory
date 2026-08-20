@@ -15,8 +15,7 @@ Endpoints:
 """
 
 from flask import Blueprint, request, jsonify, session, current_app
-from datetime import datetime
-from database import db
+from database import db, utcnow
 from models.user import User
 from routes.decorators import login_required
 from csrf_init import csrf
@@ -67,12 +66,17 @@ def register():
     password = data["password"]
     if len(password) > 128:
         return jsonify({"error": "Password must be 128 characters or fewer"}), 400
+    if len(password) < 8:
+        return jsonify({"error": "Password must be at least 8 characters"}), 400
 
     # --- Create the user ---
+    # The role is NEVER taken from the client: new accounts are always the
+    # least-privileged "viewer". Privileged roles must be assigned by an
+    # existing admin (or via the seed script).
     user = User(
         username=username,
         email=data.get("email", ""),
-        role=data.get("role", "viewer"),
+        role="viewer",
     )
     user.set_password(password)
 
@@ -113,7 +117,7 @@ def login():
         return jsonify({"error": "Account is disabled"}), 403
 
     # Update last login timestamp
-    user.last_login = datetime.utcnow()
+    user.last_login = utcnow()
     db.session.commit()
 
     # Store user ID in the session (Flask signs the cookie)

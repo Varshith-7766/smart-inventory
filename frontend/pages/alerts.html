@@ -18,7 +18,7 @@
             </div>
             <nav class="sidebar-nav">
                 <div class="nav-section">Main</div>
-                <a class="nav-item" data-page="dashboard" href="dashboard.html"><i data-feather="layout-dashboard"></i> Dashboard</a>
+                <a class="nav-item" data-page="dashboard" href="dashboard.html"><i data-feather="layout"></i> Dashboard</a>
                 <a class="nav-item" data-page="products" href="products.html"><i data-feather="package"></i> Products</a>
                 <a class="nav-item" data-page="inventory" href="inventory.html"><i data-feather="archive"></i> Inventory</a>
                 <a class="nav-item" data-page="sales" href="sales.html"><i data-feather="shopping-cart"></i> Sales</a>
@@ -126,6 +126,7 @@
                 // Get all products to compute stock status
                 const allData = await api.get("/products/?per_page=500");
                 const products = allData.products;
+                window._alertProducts = products;
                 const tbody = document.getElementById("alertsBody");
 
                 // Get alerts
@@ -153,16 +154,16 @@
                         else { status = "In Stock"; badgeClass = "badge-success"; }
 
                         return `<tr>
-                            <td><strong>${p.name}</strong></td>
-                            <td style="color:var(--text-muted)">${p.sku}</td>
-                            <td><span class="badge badge-neutral">${p.category || "General"}</span></td>
+                            <td><strong>${esc(p.name)}</strong></td>
+                            <td style="color:var(--text-muted)">${esc(p.sku)}</td>
+                            <td><span class="badge badge-neutral">${esc(p.category) || "General"}</span></td>
                             <td style="font-weight:700;color:${isLow ? 'var(--danger)' : nearLow ? 'var(--warning)' : 'var(--success)'}">${p.quantity}</td>
                             <td>${p.reorder_level}</td>
                             <td style="color:var(--danger)">${shortfall > 0 ? shortfall : '-'}</td>
                             <td><span class="badge ${badgeClass}">${status}</span></td>
                             <td>
-                                ${isLow ? `<button class="btn btn-sm btn-success" onclick="openQuickRestock(${p.id},'${p.name}')">Restock</button>` :
-                                nearLow ? `<button class="btn btn-sm btn-warning" onclick="openQuickRestock(${p.id},'${p.name}')">Restock</button>` :
+                                ${isLow ? `<button class="btn btn-sm btn-success" onclick="openQuickRestock(${p.id})">Restock</button>` :
+                                nearLow ? `<button class="btn btn-sm btn-warning" onclick="openQuickRestock(${p.id})">Restock</button>` :
                                 '<span style="color:var(--text-muted);font-size:0.78rem;">OK</span>'}
                             </td>
                         </tr>`;
@@ -180,9 +181,10 @@
             refreshIcons();
         }
 
-        function openQuickRestock(id, name) {
+        function openQuickRestock(id) {
+            const p = (window._alertProducts || []).find(x => x.id === id) || {};
             document.getElementById("quickProductId").value = id;
-            document.getElementById("quickProductName").textContent = name;
+            document.getElementById("quickProductName").textContent = p.name || ("Product #" + id);
             document.getElementById("quickQty").value = 50;
             openModal("quickStockModal");
         }

@@ -14,7 +14,7 @@ def create_features(df):
 
     df["lag_1"] = df["quantity"].shift(1).fillna(0)
     df["lag_7"] = df["quantity"].shift(7).fillna(0)
-    df["rolling_mean_7"] = df["quantity"].rolling(window=7).mean().fillna(method="bfill").fillna(0)
+    df["rolling_mean_7"] = df["quantity"].rolling(window=7).mean().bfill().fillna(0)
     df["rolling_std_7"] = df["quantity"].rolling(window=7).std().fillna(0)
 
     return df

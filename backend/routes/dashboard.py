@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, session
-from datetime import datetime, timedelta
-from database import db
+from datetime import timedelta
+from database import db, utcnow
 from models.product import Product
 from models.sale import Sale
 from routes.decorators import login_required
@@ -24,7 +24,7 @@ def dashboard_stats():
         Product.user_id == uid
     ).count()
 
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    thirty_days_ago = utcnow() - timedelta(days=30)
     recent_sales = db.session.query(
         db.func.coalesce(db.func.sum(Sale.total_amount), 0)
     ).filter(Sale.sale_date >= thirty_days_ago, Sale.processed_by == uid).scalar()

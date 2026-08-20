@@ -59,40 +59,67 @@ def test(label, method, path, expect_status=None, checks=None, **kwargs):
 
 print("=== IoT API Tests ===\n")
 
+# --- Register two test devices (issues API keys) ---
+dev_bc = test("Register barcode scanner device", "POST", "/api/iot/devices/register", json={
+    "device_id": "TEST-SCANNER-01", "device_type": "barcode_scanner", "location": "Test-Lab",
+})
+dev_rfid = test("Register RFID device", "POST", "/api/iot/devices/register", json={
+    "device_id": "TEST-RFID-01", "device_type": "rfid_reader", "location": "Loading-Dock",
+})
+assert dev_bc and dev_bc.get("device", {}).get("api_key"), "registration must return an api_key"
+assert dev_rfid and dev_rfid.get("device", {}).get("api_key"), "registration must return an api_key"
+
+KEY_BC = dev_bc["device"]["api_key"]
+KEY_RFID = dev_rfid["device"]["api_key"]
+
+# Unauthenticated ingest must be rejected
+r = s.post(f"{BASE}/api/iot/events", json={"device_id": "TEST-SCANNER-01", "device_type": "barcode_scanner"}, timeout=3)
+print(f"  PASS [{r.status_code}] Unauthenticated event rejected (expect 401)" if r.status_code == 401 else f"  FAIL [{r.status_code}] Unauthenticated event rejected")
+
 test("Stats empty", "GET", "/api/iot/stats",
      checks={"total_events": 0, "registered_devices": 0})
 test("Events list empty", "GET", "/api/iot/events",
      checks={"total": 0})
 test("Devices list empty", "GET", "/api/iot/devices")
 
-bc = test("POST barcode scan", "POST", "/api/iot/events", json={
+# Events now authenticate with the device key
+def post_event(payload, key):
+    return s.post(f"{BASE}/api/iot/events", json=payload, headers={"X-Device-Key": key}, timeout=3)
+
+bc_resp = post_event({
     "device_id": "TEST-SCANNER-01", "device_type": "barcode_scanner",
     "event_type": "scan", "barcode_data": "5901234567897",
     "location": "Test-Lab", "battery_level": 92.5, "firmware_version": "v2.3.1",
-})
-assert bc and bc.get("event"), "POST should return event"
+}, KEY_BC)
+print(f"  PASS [{bc_resp.status_code}] POST barcode scan" if bc_resp.status_code == 201 else f"  FAIL [{bc_resp.status_code}] POST barcode scan")
+bc = bc_resp.json() if bc_resp.status_code == 201 else None
 
-rfid = test("POST RFID tag_read", "POST", "/api/iot/events", json={
+rfid_resp = post_event({
     "device_id": "TEST-RFID-01", "device_type": "rfid_reader",
     "event_type": "tag_read", "rfid_epc": "E280116060000205A8B1E030",
     "rfid_antenna": 2, "rssi": -62.5, "location": "Loading-Dock",
     "battery_level": 78.0, "firmware_version": "v4.1.2",
-})
-assert rfid and rfid.get("event")
+}, KEY_RFID)
+print(f"  PASS [{rfid_resp.status_code}] POST RFID tag_read" if rfid_resp.status_code == 201 else f"  FAIL [{rfid_resp.status_code}] POST RFID tag_read")
 
-test("POST heartbeat", "POST", "/api/iot/events", json={
+post_event({
     "device_id": "TEST-SCANNER-01", "device_type": "barcode_scanner",
     "event_type": "heartbeat", "location": "Test-Lab", "battery_level": 91.0,
-})
+}, KEY_BC)
 
-test("POST error event", "POST", "/api/iot/events", json={
+post_event({
     "device_id": "TEST-RFID-01", "device_type": "rfid_reader",
     "event_type": "error", "error_message": "Antenna fault",
     "location": "Loading-Dock", "battery_level": 45.0,
-})
+}, KEY_RFID)
 
-test("POST missing device_id (400)", "POST", "/api/iot/events",
-     expect_status=400, json={"device_type": "barcode_scanner"})
+# Wrong key must be rejected
+r = post_event({"device_id": "TEST-SCANNER-01", "device_type": "barcode_scanner"}, "wrong-key")
+print(f"  PASS [{r.status_code}] Wrong device key rejected (expect 401)" if r.status_code == 401 else f"  FAIL [{r.status_code}] Wrong device key rejected")
+
+# Missing device_id -> 400 (with a valid key)
+r = post_event({"device_type": "barcode_scanner"}, KEY_BC)
+print(f"  PASS [{r.status_code}] Missing device_id (expect 400)" if r.status_code == 400 else f"  FAIL [{r.status_code}] Missing device_id")
 
 evts = test("Events list (4 events)", "GET", "/api/iot/events?per_page=10",
             checks={"total": 4})
@@ -117,6 +144,9 @@ stats = test("Stats after events", "GET", "/api/iot/stats",
              checks={"total_events": 4, "registered_devices": 2})
 if stats and stats.get("unprocessed_events") != 3:
     print(f"  WARN expected 3 unprocessed, got {stats.get('unprocessed_events')}")
+
+# Simulator: needs IOT_API_KEY set for the server-side simulator to auth.
+os.environ["IOT_API_KEY"] = KEY_BC
 
 test("Simulator status (not running)", "GET", "/api/iot/simulator/status",
      checks={"running": False})

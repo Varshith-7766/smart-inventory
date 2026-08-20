@@ -1,14 +1,19 @@
-from datetime import datetime
-from database import db
+from database import db, utcnow
 
 
 class Product(db.Model):
     __tablename__ = "products"
+    __table_args__ = (
+        # SKU / barcode uniqueness is scoped per user so different tenants
+        # can use the same codes without colliding (multi-tenant isolation).
+        db.UniqueConstraint("user_id", "sku", name="uq_product_user_sku"),
+        db.UniqueConstraint("user_id", "barcode", name="uq_product_user_barcode"),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, default=1)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     name = db.Column(db.String(200), nullable=False, index=True)
-    sku = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    sku = db.Column(db.String(50), nullable=False, index=True)
     description = db.Column(db.Text, default="")
 
     quantity = db.Column(db.Integer, nullable=False, default=0)
@@ -19,17 +24,17 @@ class Product(db.Model):
     cost_price = db.Column(db.Numeric(10, 2), nullable=True)
     weight_kg = db.Column(db.Numeric(8, 3), nullable=True)
 
-    category_id = db.Column(db.Integer, db.ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False, default=1)
+    category_id = db.Column(db.Integer, db.ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False, index=True)
     category = db.Column(db.String(100), default="General")
     supplier_id = db.Column(db.Integer, db.ForeignKey("suppliers.id"), nullable=True)
 
-    barcode = db.Column(db.String(100), unique=True, nullable=True)
+    barcode = db.Column(db.String(100), nullable=True, index=True)
     barcode_format = db.Column(db.String(20), nullable=True)
     image_url = db.Column(db.String(500), nullable=True)
 
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
     def is_low_stock(self):
         return self.quantity <= self.reorder_level

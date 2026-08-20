@@ -4,29 +4,24 @@ Stock Routes
 Manual stock adjustments and low-stock alert management.
 
 Endpoints:
-  POST /api/stock/adjust       — Adjust stock (+/-) for a product
+  POST /api/stock/adjust       — Adjust stock (+/-) for a product (manager+)
   GET  /api/stock/alerts       — List all low-stock alerts
-  PATCH /api/stock/alerts/<id>/resolve — Mark an alert as resolved
+  PATCH /api/stock/alerts/resolve — Persist an alert acknowledgement
 """
 
-import os
 from flask import Blueprint, request, jsonify, session
-from datetime import datetime
 from database import db
 from models.product import Product
-from models.sale import Sale, SaleItem
+from models.sale import Sale
 from models.inventory_log import InventoryLog
-from routes.decorators import login_required
-from csrf_init import csrf
+from models.alert_resolution import AlertResolution
+from routes.decorators import login_required, role_required
 
 stock_bp = Blueprint("stock", __name__)
 
 
 # ======================================================================
 # STOCK MOVEMENTS (recent sale activity)
-# ======================================================================
-# GET /api/stock/movements
-# Returns recent stock movements aggregated from sales data.
 # ======================================================================
 @stock_bp.route("/movements", methods=["GET"])
 @login_required
@@ -65,20 +60,8 @@ def stock_movements():
 # ======================================================================
 # ADJUST STOCK
 # ======================================================================
-# POST /api/stock/adjust
-# Use this to add stock (positive change) or remove stock (negative change)
-# for reasons other than a sale (e.g., receiving a shipment, damage, return).
-#
-# Request body (JSON):
-#   {
-#     "product_id": 1,
-#     "quantity_change": 50,     // positive = add, negative = remove
-#     "reason": "New shipment received"
-#   }
-# ======================================================================
-@csrf.exempt
 @stock_bp.route("/adjust", methods=["POST"])
-@login_required
+@role_required("manager", "admin")
 def adjust_stock():
     uid = session["user_id"]
     data = request.get_json()
@@ -88,11 +71,17 @@ def adjust_stock():
         return jsonify({"error": "Request body is required"}), 400
 
     product_id = data.get("product_id")
-    quantity_change = data.get("quantity_change")
 
-    if not product_id:
-        return jsonify({"error": "product_id is required"}), 400
-    if quantity_change is None or quantity_change == 0:
+    try:
+        product_id = int(product_id)
+    except (TypeError, ValueError):
+        return jsonify({"error": "product_id must be an integer"}), 400
+
+    try:
+        quantity_change = int(data.get("quantity_change"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "quantity_change must be an integer"}), 400
+    if quantity_change == 0:
         return jsonify({"error": "quantity_change must be a non-zero integer"}), 400
 
     # --- Find the product (must belong to current user) ---
@@ -141,20 +130,21 @@ def adjust_stock():
 # ======================================================================
 # LIST LOW-STOCK ALERTS
 # ======================================================================
-# GET /api/stock/alerts
-# Returns all products that are currently below their reorder level.
-# This is a live query — it always reflects the current stock state.
-# ======================================================================
 @stock_bp.route("/alerts", methods=["GET"])
 @login_required
 def list_alerts():
     uid = session["user_id"]
-    # Query all active products where quantity <= reorder_level
     products = Product.query.filter(
         Product.is_active == True,
         Product.quantity <= Product.reorder_level,
         Product.user_id == uid
     ).order_by(Product.quantity.asc()).all()
+
+    # Include whether each alert has been acknowledged (and when)
+    resolved_map = {
+        r.product_id: r.resolved_at.isoformat()
+        for r in AlertResolution.query.filter_by(user_id=uid).all()
+    }
 
     alerts = []
     for product in products:
@@ -165,6 +155,7 @@ def list_alerts():
             "current_quantity": product.quantity,
             "reorder_level": product.reorder_level,
             "shortfall": product.reorder_level - product.quantity,
+            "resolved_at": resolved_map.get(product.id),
             # How many units we recommend ordering
             "suggested_order_qty": max(
                 product.reorder_level * 2 - product.quantity,  # bring up to 2x reorder
@@ -181,13 +172,9 @@ def list_alerts():
 # ======================================================================
 # RESOLVE AN ALERT (mark as handled)
 # ======================================================================
-# PATCH /api/stock/alerts/resolve
-# After restocking a product, the alert can be dismissed.
-# The alert will re-appear if the product drops below reorder level again.
-#
-# Request body (JSON):
-#   { "product_id": 5 }
-# ======================================================================
+# After restocking a product, the alert can be acknowledged. The
+# acknowledgement is persisted so it is auditable. The alert will re-appear
+# if the product drops below its reorder level again.
 @stock_bp.route("/alerts/resolve", methods=["PATCH"])
 @login_required
 def resolve_alert():
@@ -196,17 +183,28 @@ def resolve_alert():
     if not data or not data.get("product_id"):
         return jsonify({"error": "product_id is required"}), 400
 
-    product = Product.query.filter_by(id=data["product_id"], user_id=uid).first()
-    if product is None:
-        return jsonify({"error": f"Product #{data['product_id']} not found"}), 404
+    try:
+        product_id = int(data["product_id"])
+    except (TypeError, ValueError):
+        return jsonify({"error": "product_id must be an integer"}), 400
 
-    # "Resolving" here means we acknowledge the alert.
-    # In a full system you'd have a dedicated alerts table with a resolved flag.
-    # For now, we just return a success message.
+    product = Product.query.filter_by(id=product_id, user_id=uid).first()
+    if product is None:
+        return jsonify({"error": f"Product #{product_id} not found"}), 404
+
+    # Upsert the acknowledgement
+    resolution = AlertResolution.query.filter_by(user_id=uid, product_id=product_id).first()
+    if resolution is None:
+        resolution = AlertResolution(user_id=uid, product_id=product_id)
+        db.session.add(resolution)
+    resolution.notes = (data.get("notes") or "")[:255]
+    db.session.commit()
+
     return jsonify({
         "message": f"Alert resolved for '{product.name}'",
         "product_id": product.id,
         "current_quantity": product.quantity,
         "reorder_level": product.reorder_level,
         "still_low": product.is_low_stock(),
+        "resolved_at": resolution.resolved_at.isoformat(),
     })

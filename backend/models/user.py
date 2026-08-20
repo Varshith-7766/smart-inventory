@@ -5,7 +5,7 @@ Manages admin/manager/viewer authentication.
 
 Password storage:
   - Raw passwords are NEVER stored.
-  - We store a bcrypt hash (one-way, salted).
+  - We store a Werkzeug hash (one-way, salted).
   - `set_password()` hashes before saving.
   - `check_password()` compares a plain-text attempt against the stored hash.
 
@@ -14,7 +14,7 @@ Columns:
   id              - Auto-increment primary key
   username        - Unique login name (indexed for fast lookups)
   email           - Unique email address
-  password_hash   - bcrypt hash (60+ characters)
+  password_hash   - Password hash
   role            - admin | manager | viewer
   is_active       - Soft-delete: 0 = disabled, 1 = active (default)
   last_login      - Set when user successfully authenticates
@@ -22,9 +22,11 @@ Columns:
   updated_at      - Auto-updated on every change
 """
 
-from datetime import datetime
-from database import db
+from database import db, utcnow
 from werkzeug.security import generate_password_hash, check_password_hash
+
+# Valid roles. New accounts default to the least-privileged role.
+ROLES = ("admin", "manager", "viewer")
 
 
 class User(db.Model):
@@ -41,10 +43,13 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
 
     # ----- Authorization -----
+    # Default is the least-privileged role. Admins must be created explicitly
+    # (e.g. via scripts/seed_data.py); the registration endpoint never grants
+    # anything beyond "viewer".
     role = db.Column(
         db.String(20),
         nullable=False,
-        default="admin",
+        default="viewer",
         comment="admin | manager | viewer"
     )
 
@@ -53,12 +58,8 @@ class User(db.Model):
     last_login = db.Column(db.DateTime, nullable=True)
 
     # ----- Timestamps -----
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(
-        db.DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow
-    )
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
     # ----------------------------------------------------------------
     # Password helpers  (abstract away the hashing detail)

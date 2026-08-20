@@ -680,7 +680,7 @@ def get_product_info_from_db(product_id, db_session=None):
         return None
 
     from models.product import Product
-    product = db_session.session.query(Product).get(product_id)
+    product = db_session.session.get(Product, product_id)
     if product is None:
         return None
 
@@ -723,15 +723,20 @@ def run_for_product(product_id, db_session, lead_time_days=7):
     )
 
 
-def run_for_all_products(db_session, lead_time_days=7):
+def run_for_all_products(db_session, lead_time_days=7, user_id=None):
     """
     Run analysis for ALL active products.
 
     Useful for generating predictions for every product in one pass.
+    If `user_id` is given, only that user's products are analyzed
+    (multi-tenant safe).
     """
     from models.product import Product
 
-    products = db_session.session.query(Product).filter_by(is_active=True).all()
+    query = Product.query.filter_by(is_active=True)
+    if user_id is not None:
+        query = query.filter_by(user_id=user_id)
+    products = query.all()
     results = []
 
     for product in products:

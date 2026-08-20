@@ -1,5 +1,4 @@
-from datetime import datetime
-from database import db
+from database import db, utcnow
 
 
 class InventoryLog(db.Model):
@@ -28,7 +27,7 @@ class InventoryLog(db.Model):
     reference_type = db.Column(db.String(50), nullable=True)
     reference_id = db.Column(db.Integer, nullable=True)
     notes = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
 
     product = db.relationship("Product", lazy="joined")
     user = db.relationship("User", lazy="joined")

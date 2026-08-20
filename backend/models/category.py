@@ -1,5 +1,4 @@
-from datetime import datetime
-from database import db
+from database import db, utcnow
 
 
 class Category(db.Model):
@@ -7,7 +6,7 @@ class Category(db.Model):
     __table_args__ = (db.UniqueConstraint("user_id", "name", name="uq_category_user_name"),)
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, default=1)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(255), nullable=True)
     parent_category_id = db.Column(
@@ -15,8 +14,8 @@ class Category(db.Model):
     )
     sort_order = db.Column(db.Integer, nullable=False, default=0)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
     parent = db.relationship("Category", remote_side="Category.id", backref="children")
 

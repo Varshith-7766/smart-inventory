@@ -70,6 +70,16 @@ const api = {
             const res = await fetch(url, options);
             const data = await res.json().catch(() => ({}));
 
+            if (res.status === 401) {
+                // Session expired or not logged in — send the user to login.
+                // Skip on the login/register pages themselves.
+                const onAuthPage = /(login|register)\.html/.test(window.location.pathname);
+                if (!onAuthPage) {
+                    window.location.href = "/login.html";
+                    return data;
+                }
+            }
+
             if (!res.ok) {
                 throw new Error(data.error || `Request failed (${res.status})`);
             }
@@ -186,6 +196,18 @@ document.addEventListener("click", (e) => {
 // ---------------------------------------------------------------------------
 function currency(n) {
     return "$" + Number(n).toFixed(2);
+}
+
+// HTML-escape user-controlled values before interpolating them into innerHTML.
+// Prevents stored XSS via product names, notes, device IDs, etc.
+function esc(value) {
+    if (value === null || value === undefined) return "";
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
 }
 
 function dateStr(d) {

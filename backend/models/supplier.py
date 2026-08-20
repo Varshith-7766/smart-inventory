@@ -15,8 +15,7 @@ Columns:
   created_at / updated_at
 """
 
-from datetime import datetime
-from database import db
+from database import db, utcnow
 
 
 class Supplier(db.Model):
@@ -25,7 +24,7 @@ class Supplier(db.Model):
     __tablename__ = "suppliers"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, default=1)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     name = db.Column(db.String(200), nullable=False, comment="Company name")
     contact_person = db.Column(db.String(100), comment="Primary contact name")
     email = db.Column(db.String(120), comment="Contact email")
@@ -33,8 +32,8 @@ class Supplier(db.Model):
     address = db.Column(db.Text, comment="Full address")
     lead_time_days = db.Column(db.Integer, comment="Avg days from order to delivery")
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
     # One supplier → many products
     products = db.relationship("Product", backref="supplier", lazy="dynamic")

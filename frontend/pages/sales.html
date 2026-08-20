@@ -18,7 +18,7 @@
             </div>
             <nav class="sidebar-nav">
                 <div class="nav-section">Main</div>
-                <a class="nav-item" data-page="dashboard" href="dashboard.html"><i data-feather="layout-dashboard"></i> Dashboard</a>
+                <a class="nav-item" data-page="dashboard" href="dashboard.html"><i data-feather="layout"></i> Dashboard</a>
                 <a class="nav-item" data-page="products" href="products.html"><i data-feather="package"></i> Products</a>
                 <a class="nav-item" data-page="inventory" href="inventory.html"><i data-feather="archive"></i> Inventory</a>
                 <a class="nav-item active" data-page="sales" href="sales.html"><i data-feather="shopping-cart"></i> Sales</a>
@@ -168,10 +168,10 @@
                         totalRev += s.total_amount;
                         return `<tr>
                             <td style="white-space:nowrap">${dateTimeStr(s.sale_date)}</td>
-                            <td>${s.customer_name || '-'}</td>
+                            <td>${esc(s.customer_name) || '-'}</td>
                             <td><span class="badge badge-info">${s.items.length} item(s)</span></td>
-                            <td><strong>$${Number(s.total_amount).toFixed(2)}</strong></td>
-                            <td><span class="badge badge-neutral">${s.payment_method || 'cash'}</span></td>
+                            <td><strong>${currency(s.total_amount)}</strong></td>
+                            <td><span class="badge badge-neutral">${esc(s.payment_method) || 'cash'}</span></td>
                             <td><button class="btn btn-sm btn-secondary" onclick="viewSale(${s.id})">View</button></td>
                         </tr>`;
                     }).join("");
@@ -201,7 +201,7 @@
             try {
                 const data = await api.get("/products/?per_page=500");
                 const opts = data.products.map(p =>
-                    `<option value="${p.id}" data-price="${p.unit_price}">${p.name} (${p.sku}) — qty: ${p.quantity}</option>`
+                    `<option value="${p.id}" data-price="${p.unit_price}">${esc(p.name)} (${esc(p.sku)}) — qty: ${p.quantity}</option>`
                 ).join("");
                 document.querySelectorAll(".sale-item-row select").forEach(sel => {
                     sel.innerHTML = '<option value="">Select product...</option>' + opts;
@@ -305,8 +305,8 @@
                 const s = data.sale;
                 let html = `
                     <p><strong>Date:</strong> ${dateTimeStr(s.sale_date)}</p>
-                    <p><strong>Customer:</strong> ${s.customer_name || 'Walk-in'}</p>
-                    <p><strong>Total:</strong> <span style="font-size:1.25rem;font-weight:700;">$${Number(s.total_amount).toFixed(2)}</span></p>
+                    <p><strong>Customer:</strong> ${esc(s.customer_name) || 'Walk-in'}</p>
+                    <p><strong>Total:</strong> <span style="font-size:1.25rem;font-weight:700;">${currency(s.total_amount)}</span></p>
                     <hr style="border-color:var(--border);margin:1rem 0;">
                     <h4 style="margin-bottom:0.5rem;">Items</h4>
                     <table class="table-container" style="width:100%;">
@@ -314,10 +314,10 @@
                         <tbody>
                             ${s.items.map(i => `
                                 <tr>
-                                    <td>${i.product_name || 'Product #' + i.product_id}</td>
+                                    <td>${esc(i.product_name) || 'Product #' + i.product_id}</td>
                                     <td>${i.quantity}</td>
-                                    <td>$${Number(i.unit_price).toFixed(2)}</td>
-                                    <td><strong>$${Number(i.total_price).toFixed(2)}</strong></td>
+                                    <td>${currency(i.unit_price)}</td>
+                                    <td><strong>${currency(i.total_price)}</strong></td>
                                 </tr>
                             `).join("")}
                         </tbody>

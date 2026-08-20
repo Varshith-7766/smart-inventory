@@ -1,5 +1,4 @@
-from datetime import datetime
-from database import db
+from database import db, utcnow
 
 
 class Sale(db.Model):
@@ -7,7 +6,7 @@ class Sale(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     invoice_number = db.Column(db.String(50), nullable=True)
-    sale_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    sale_date = db.Column(db.DateTime, nullable=False, default=utcnow, index=True)
     total_amount = db.Column(db.Numeric(12, 2), nullable=False, default=0.0)
     discount_amount = db.Column(db.Numeric(12, 2), nullable=False, default=0.0)
     tax_amount = db.Column(db.Numeric(12, 2), nullable=False, default=0.0)
@@ -18,8 +17,8 @@ class Sale(db.Model):
     status = db.Column(db.String(20), nullable=False, default="active", index=True)
     processed_by = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     notes = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
     items = db.relationship(
         "SaleItem", backref="sale", lazy="joined", cascade="all, delete-orphan"

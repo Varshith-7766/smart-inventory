@@ -6,19 +6,18 @@ Record new sales and fetch historical sales data.
 Endpoints:
   GET    /api/sales          — List sales history (paginated, date-filtered)
   GET    /api/sales/<id>     — Get one sale with all its items
-  POST   /api/sales          — Record a new sale
-  DELETE /api/sales/<id>     — Void a sale and restore inventory
+  POST   /api/sales          — Record a new sale (manager+)
+  DELETE /api/sales/<id>     — Void a sale and restore inventory (manager+)
 """
 
 from flask import Blueprint, request, jsonify, session
 from datetime import datetime
 from decimal import Decimal
 from database import db
-from csrf_init import csrf
 from models.product import Product
 from models.sale import Sale, SaleItem
 from models.inventory_log import InventoryLog
-from routes.decorators import login_required
+from routes.decorators import login_required, role_required
 
 sales_bp = Blueprint("sales", __name__)
 
@@ -26,33 +25,27 @@ sales_bp = Blueprint("sales", __name__)
 # ======================================================================
 # LIST SALES HISTORY
 # ======================================================================
-# GET /api/sales
-# Query params:
-#   page        — Page number (default 1)
-#   per_page    — Items per page (default 50)
-#   start_date  — Filter: only sales on or after this date  (ISO format)
-#   end_date    — Filter: only sales on or before this date (ISO format)
-#   product_id  — Filter: only sales containing this product
-# ======================================================================
 @sales_bp.route("/", methods=["GET"])
 @login_required
 def list_sales():
     uid = session["user_id"]
-    # --- Build query ---
     query = Sale.query.filter_by(processed_by=uid)
 
-    # --- Date range filter ---
+    # --- Date range filter (malformed dates return 400, not 500) ---
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
 
-    if start_date:
-        query = query.filter(
-            Sale.sale_date >= datetime.fromisoformat(start_date)
-        )
-    if end_date:
-        query = query.filter(
-            Sale.sale_date <= datetime.fromisoformat(end_date)
-        )
+    try:
+        if start_date:
+            query = query.filter(
+                Sale.sale_date >= datetime.fromisoformat(start_date)
+            )
+        if end_date:
+            query = query.filter(
+                Sale.sale_date <= datetime.fromisoformat(end_date)
+            )
+    except ValueError:
+        return jsonify({"error": "Invalid date format. Use ISO format (YYYY-MM-DD)."}), 400
 
     # --- Filter by product (joins through SaleItem) ---
     product_id = request.args.get("product_id", type=int)
@@ -78,9 +71,6 @@ def list_sales():
 # ======================================================================
 # GET SINGLE SALE
 # ======================================================================
-# GET /api/sales/<id>
-# Returns the sale header plus all line items.
-# ======================================================================
 @sales_bp.route("/<int:sale_id>", methods=["GET"])
 @login_required
 def get_sale(sale_id):
@@ -95,12 +85,8 @@ def get_sale(sale_id):
 # ======================================================================
 # DELETE SALE (soft-delete / void)
 # ======================================================================
-# DELETE /api/sales/<id>
-# Voids a sale: marks it void and restores inventory.
-# ======================================================================
-@csrf.exempt
 @sales_bp.route("/<int:sale_id>", methods=["DELETE"])
-@login_required
+@role_required("manager", "admin")
 def delete_sale(sale_id):
     uid = session["user_id"]
     sale = Sale.query.filter_by(id=sale_id, processed_by=uid).first()
@@ -112,7 +98,7 @@ def delete_sale(sale_id):
 
     previous_qty = []
     for item in sale.items:
-        product = Product.query.get(item.product_id)
+        product = Product.query.filter_by(id=item.product_id, user_id=uid).first()
         if product:
             prev = product.quantity
             product.quantity += item.quantity
@@ -139,27 +125,8 @@ def delete_sale(sale_id):
 # ======================================================================
 # RECORD A NEW SALE
 # ======================================================================
-# POST /api/sales
-# Request body (JSON):
-#   {
-#     "customer_name": "Alice Johnson",
-#     "notes": "Walk-in customer",
-#     "items": [
-#       { "product_id": 1, "quantity": 2, "unit_price": 12.99 },
-#       { "product_id": 7, "quantity": 1, "unit_price": 8.99 }
-#     ]
-#   }
-#
-# What happens:
-#   1. Validate that every product exists and has enough stock
-#   2. Deduct quantities from product stock
-#   3. Calculate the total amount
-#   4. Create the Sale + SaleItem records
-#   5. Commit everything in one transaction
-# ======================================================================
-@csrf.exempt
 @sales_bp.route("/", methods=["POST"])
-@login_required
+@role_required("manager", "admin")
 def record_sale():
     uid = session["user_id"]
     data = request.get_json()
@@ -175,44 +142,57 @@ def record_sale():
     if notes and len(notes) > 500:
         return jsonify({"error": "notes must be 500 characters or fewer"}), 400
 
-    items_data = data.get("items", [])
-    if not items_data:
+    items_data = data.get("items")
+    if not isinstance(items_data, list) or not items_data:
         return jsonify({"error": "Sale must include at least one item"}), 400
 
     # ----------------------------------------------------------------
-    # Process each item: validate stock, calculate totals
+    # Validate + aggregate items, then compute totals
     # ----------------------------------------------------------------
+    # Merge duplicate product lines so stock is deducted once per product.
+    aggregated = {}
+    for idx, item_data in enumerate(items_data):
+        if not isinstance(item_data, dict):
+            return jsonify({"error": f"Item {idx}: must be an object"}), 400
+        if "product_id" not in item_data or "quantity" not in item_data:
+            return jsonify({"error": f"Item {idx}: product_id and quantity are required"}), 400
+
+        try:
+            product_id = int(item_data["product_id"])
+        except (TypeError, ValueError):
+            return jsonify({"error": f"Item {idx}: product_id must be an integer"}), 400
+
+        try:
+            quantity = int(item_data["quantity"])
+        except (TypeError, ValueError):
+            return jsonify({"error": f"Item {idx}: quantity must be an integer"}), 400
+        if quantity <= 0:
+            return jsonify({"error": f"Item {idx}: quantity must be a positive integer"}), 400
+
+        aggregated[product_id] = aggregated.get(product_id, 0) + quantity
+
     sale_items = []
     grand_total = Decimal("0.00")
 
-    for idx, item_data in enumerate(items_data):
-        # --- Validate item fields ---
-        if "product_id" not in item_data:
-            return jsonify({"error": f"Item {idx}: product_id is required"}), 400
-        if "quantity" not in item_data:
-            return jsonify({"error": f"Item {idx}: quantity is required"}), 400
-
-        product_id = item_data["product_id"]
-        quantity = item_data["quantity"]
-
+    for product_id, quantity in aggregated.items():
         # --- Check if product exists (must belong to current user) ---
         product = Product.query.filter_by(id=product_id, user_id=uid).first()
         if product is None:
             return jsonify({
-                "error": f"Item {idx}: Product #{product_id} not found"
+                "error": f"Product #{product_id} not found"
             }), 404
 
         # --- Check stock availability ---
         if product.quantity < quantity:
             return jsonify({
-                "error": f"Item {idx}: Insufficient stock for '{product.name}' "
+                "error": f"Insufficient stock for '{product.name}' "
                          f"(available: {product.quantity}, requested: {quantity})"
             }), 400
 
-        # --- Use provided unit price, or fall back to product's current price ---
-        unit_price = item_data.get("unit_price", product.unit_price)
-        if not isinstance(unit_price, Decimal):
-            unit_price = Decimal(str(unit_price))
+        # --- Unit price ---
+        # Always use the product's current price. Client-supplied prices are
+        # ignored so a caller can never record a sale at a tampered amount.
+        unit_price = product.unit_price
         total_price = round(quantity * unit_price, 2)
         grand_total += total_price
 
@@ -233,7 +213,6 @@ def record_sale():
             notes=f"Sale of {quantity} x {product.name}",
         ))
 
-        # --- Create SaleItem (not yet saved — will cascade from Sale) ---
         sale_items.append(SaleItem(
             product_id=product_id,
             quantity=quantity,
@@ -250,7 +229,7 @@ def record_sale():
         customer_name=customer_name,
         notes=notes,
         payment_method=data.get("payment_method", "cash"),
-        items=sale_items,  # SQLAlchemy automatically links these
+        items=sale_items,
     )
 
     db.session.add(sale)

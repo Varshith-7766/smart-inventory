@@ -23,6 +23,7 @@ fail_count = 0
 with client.session_transaction() as sess:
     sess["user_id"] = 1
     sess["username"] = "admin"
+    sess["role"] = "admin"
 
 
 def test(name, condition):
@@ -70,7 +71,7 @@ pid_free = r.get_json()["product"]["id"]
 
 # 7. Negative quantity
 r = client.post("/api/products/", json={"name": "Neg Qty", "sku": f"EDGE-SKU-F-{uid}", "unit_price": 5.0, "quantity": -5})
-test("Negative quantity accepted (no DB CHECK constraint)", r.status_code == 201)
+test("Negative quantity returns 400", r.status_code == 400)
 
 # 8. Get nonexistent product
 r = client.get("/api/products/999999")
@@ -239,9 +240,9 @@ test("Login missing fields returns 400", r.status_code == 400)
 
 # 36. Register duplicate username
 test_user = f"edge_test_{uid}"
-r = client.post("/api/auth/register", json={"username": test_user, "email": f"{test_user}@test.com", "password": "test123"})
+r = client.post("/api/auth/register", json={"username": test_user, "email": f"{test_user}@test.com", "password": "test1234"})
 assert r.status_code == 201
-r = client.post("/api/auth/register", json={"username": test_user, "password": "test123"})
+r = client.post("/api/auth/register", json={"username": test_user, "password": "test1234"})
 test("Register duplicate username returns 409", r.status_code == 409)
 
 # 37. Register missing fields

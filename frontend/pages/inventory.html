@@ -18,7 +18,7 @@
             </div>
             <nav class="sidebar-nav">
                 <div class="nav-section">Main</div>
-                <a class="nav-item" data-page="dashboard" href="dashboard.html"><i data-feather="layout-dashboard"></i> Dashboard</a>
+                <a class="nav-item" data-page="dashboard" href="dashboard.html"><i data-feather="layout"></i> Dashboard</a>
                 <a class="nav-item" data-page="products" href="products.html"><i data-feather="package"></i> Products</a>
                 <a class="nav-item active" data-page="inventory" href="inventory.html"><i data-feather="archive"></i> Inventory</a>
                 <a class="nav-item" data-page="sales" href="sales.html"><i data-feather="shopping-cart"></i> Sales</a>
@@ -171,10 +171,10 @@
                         const isPositive = m.quantity_change > 0;
                         return `<tr>
                             <td style="white-space:nowrap">${dateTimeStr(m.created_at)}</td>
-                            <td><strong>${m.product_name}</strong></td>
-                            <td><span class="badge badge-${isPositive ? 'success' : 'danger'}">${m.movement_type}</span></td>
+                            <td><strong>${esc(m.product_name)}</strong></td>
+                            <td><span class="badge badge-${isPositive ? 'success' : 'danger'}">${esc(m.movement_type)}</span></td>
                             <td style="font-weight:600;color:${isPositive ? 'var(--success)' : 'var(--danger)'}">${isPositive ? '+' : ''}${m.quantity_change}</td>
-                            <td style="color:var(--text-muted)">${m.notes || m.reason || '-'}</td>
+                            <td style="color:var(--text-muted)">${esc(m.notes || m.reason) || '-'}</td>
                         </tr>`;
                     }).join("");
                 }
@@ -199,7 +199,7 @@
                 const data = await api.get("/products/?per_page=500");
                 const sel = document.getElementById("stockProductId");
                 sel.innerHTML = '<option value="">Select product...</option>' +
-                    data.products.map(p => `<option value="${p.id}">${p.name} (${p.sku}) — Qty: ${p.quantity}</option>`).join("");
+                    data.products.map(p => `<option value="${p.id}">${esc(p.name)} (${esc(p.sku)}) — Qty: ${p.quantity}</option>`).join("");
             } catch (e) { console.error(e); }
         }
 

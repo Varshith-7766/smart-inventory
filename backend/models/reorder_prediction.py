@@ -1,5 +1,4 @@
-from datetime import datetime
-from database import db
+from database import db, utcnow
 
 
 class ReorderPrediction(db.Model):
@@ -20,7 +19,7 @@ class ReorderPrediction(db.Model):
         db.Enum("GREEN", "YELLOW", "RED", "BLACK"), nullable=True
     )
     notes = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
 
     product = db.relationship("Product", lazy="joined")
 

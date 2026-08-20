@@ -16,8 +16,22 @@ Usage in other files:
     db.session.commit()
 """
 
+from datetime import datetime, timezone
+
 from flask_sqlalchemy import SQLAlchemy
 
 # Instantiate once and import wherever needed.
 # This is the "One SQLAlchemy to rule them all" pattern.
 db = SQLAlchemy()
+
+
+def utcnow():
+    """
+    Timezone-aware UTC timestamp, stored as naive for DB compatibility.
+
+    `datetime.utcnow()` is deprecated since Python 3.12, so all models and
+    routes should use this helper instead. Returns a naive datetime in UTC
+    so it stays compatible with SQLAlchemy `DateTime` columns (which do not
+    store timezone info) across SQLite / MySQL / PostgreSQL.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)

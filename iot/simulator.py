@@ -8,6 +8,8 @@ import requests
 logger = logging.getLogger(__name__)
 
 API_BASE = os.getenv("IOT_API_BASE", "http://localhost:5000/api/iot")
+# API key of a registered device (see POST /api/iot/devices/register).
+DEVICE_API_KEY = os.getenv("IOT_API_KEY", "")
 
 DEVICE_TEMPLATES = [
     {"device_id": "SCANNER-WH001", "device_type": "barcode_scanner", "location": "Warehouse-A"},
@@ -93,6 +95,12 @@ def generate_error(device):
 
 def run_simulation(stop_event, interval_range=(1, 5), error_rate=0.05):
     session = requests.Session()
+    headers = {}
+    if DEVICE_API_KEY:
+        headers["X-Device-Key"] = DEVICE_API_KEY
+    else:
+        logger.warning("IOT_API_KEY not set — simulated events will be rejected (401)")
+
     while not stop_event.is_set():
         device = random.choice(DEVICE_TEMPLATES)
         roll = random.random()
@@ -106,7 +114,7 @@ def run_simulation(stop_event, interval_range=(1, 5), error_rate=0.05):
             payload = generate_scan_event(device) if roll < 0.8 else generate_heartbeat(device)
 
         try:
-            resp = session.post(f"{API_BASE}/events", json=payload, timeout=2)
+            resp = session.post(f"{API_BASE}/events", json=payload, headers=headers, timeout=2)
             if resp.status_code not in (200, 201):
                 logger.warning("IoT simulator: %s returned %d", API_BASE, resp.status_code)
         except requests.RequestException as e:

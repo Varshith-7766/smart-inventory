@@ -2,12 +2,11 @@
 # Smart Inventory — Python Dependencies
 # =============================================================================
 # Install with:  pip install -r requirements.txt
-# Freeze with:   pip freeze > requirements.txt
 
 # --- Web Framework ---
 Flask==3.0.0
-Flask-CORS==4.0.0          # Cross-Origin Resource Sharing (frontend → API)
-Flask-WTF==1.2.1           # CSRF protection for forms
+Flask-CORS==4.0.0          # Cross-Origin Resource Sharing (optional; locked to explicit origins)
+Flask-WTF==1.2.1           # CSRF protection
 
 # --- Database ---
 Flask-SQLAlchemy==3.1.1    # ORM — talk to database with Python objects
@@ -27,6 +26,12 @@ python-dateutil==2.8.2     # Robust date parsing
 # --- Production Server ---
 gunicorn==21.2.0           # WSGI server (used instead of Flask dev server)
 
+# --- Predictive Analytics (prediction/ module) ---
+pandas==2.2.2
+numpy==1.26.4
+
+# --- IoT simulator ---
+requests==2.32.3
+
 # --- Testing (optional: install separately) ---
 # pytest==7.4.3
-# requests==2.31.0

@@ -5,7 +5,8 @@ services:
     image: mysql:8.0
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
+      # Override in production:  MYSQL_ROOT_PASSWORD=<strong-password>
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
       MYSQL_DATABASE: smart_inventory
     ports:
       - "3306:3306"
@@ -20,8 +21,10 @@ services:
     ports:
       - "5000:5000"
     environment:
-      DATABASE_URL: mysql+pymysql://root:rootpassword@db:3306/smart_inventory
-      SECRET_KEY: change-me-in-production
+      DATABASE_URL: ${DATABASE_URL:-mysql+pymysql://root:rootpassword@db:3306/smart_inventory}
+      # If SECRET_KEY is not set, the app generates a random one at startup
+      # (sessions reset on restart). Set a strong value for persistent sessions.
+      SECRET_KEY: ${SECRET_KEY:-}
     depends_on:
       - db
 

@@ -30,7 +30,11 @@ class SalesDataLoader:
         daily.columns = ["date", "quantity"]
         return daily
 
-    def load_all_products(self):
+    def load_all_products(self, user_id=None):
         engine = create_engine(self.database_url)
-        query = text("SELECT id, name FROM products WHERE is_active = 1")
-        return pd.read_sql(query, engine)
+        query = "SELECT id, name FROM products WHERE is_active = TRUE"
+        params = {}
+        if user_id is not None:
+            query += " AND user_id = :uid"
+            params = {"uid": user_id}
+        return pd.read_sql(text(query), engine, params=params)
