@@ -1,0 +1,12 @@
+# Railway deploy config — https://docs.railway.com/reference/config-as-code
+# Deploy: push to GitHub, then "New Project → Deploy from GitHub repo"
+# Railway auto-detects this file and uses the Dockerfile.
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

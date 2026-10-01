@@ -54,6 +54,10 @@ class Config:
     _db_url = os.getenv("DATABASE_URL", "sqlite:///inventory.db")
     if _db_url and _db_url.startswith("postgres://"):
         _db_url = _db_url.replace("postgres://", "postgresql://", 1)
+    # Railway's MySQL plugin provides mysql:// URLs, but SQLAlchemy needs
+    # an explicit driver (we ship PyMySQL), so normalize the scheme.
+    if _db_url and _db_url.startswith("mysql://"):
+        _db_url = _db_url.replace("mysql://", "mysql+pymysql://", 1)
     SQLALCHEMY_DATABASE_URI = _db_url
     # Disable Flask-SQLAlchemy event system (saves memory)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
