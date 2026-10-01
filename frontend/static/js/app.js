@@ -93,8 +93,18 @@ const api = {
     post(path, b)   { return this.request("POST", path, b); },
     put(path, b)    { return this.request("PUT", path, b); },
     patch(path, b)  { return this.request("PATCH", path, b); },
-    delete(path)    { return this.request("DELETE", path); },
+    delete(path)      { return this.request("DELETE", path); },
 };
+
+// Logout: end the server session first, then leave. A plain link would only
+// navigate away and leave the session cookie valid (fake logout).
+async function handleLogout(e) {
+    if (e) e.preventDefault();
+    if (!confirm("Logout?")) return false;
+    try { await api.post("/auth/logout", {}); } catch (_) {}
+    window.location.href = "/login.html";
+    return false;
+}
 
 // ---------------------------------------------------------------------------
 // Toast notification system
