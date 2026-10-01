@@ -176,7 +176,7 @@ def list_alerts():
 # acknowledgement is persisted so it is auditable. The alert will re-appear
 # if the product drops below its reorder level again.
 @stock_bp.route("/alerts/resolve", methods=["PATCH"])
-@login_required
+@role_required("manager", "admin")
 def resolve_alert():
     uid = session["user_id"]
     data = request.get_json()

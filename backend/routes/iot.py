@@ -1,4 +1,3 @@
-import os
 import secrets
 import threading
 from flask import Blueprint, request, jsonify, session
@@ -207,7 +206,7 @@ def list_events():
 
 
 @iot_bp.route("/events/<int:event_id>/process", methods=["PATCH"])
-@login_required
+@role_required("manager", "admin")
 def process_event(event_id):
     uid = session["user_id"]
     event = IoTDeviceLog.query.filter_by(id=event_id, user_id=uid).first()
@@ -306,30 +305,36 @@ def iot_stats():
 
 
 @iot_bp.route("/simulator/start", methods=["POST"])
-@login_required
+@role_required("manager", "admin")
 def simulator_start():
     global _simulator_instance
     with _simulator_lock:
         if _simulator_instance and _simulator_instance.is_running():
             return jsonify({"status": "already_running"})
 
-        # The simulator needs a registered device key to authenticate with
-        # the ingest endpoint.
-        api_key = os.getenv("IOT_API_KEY", "")
-        if not api_key:
-            return jsonify({
-                "status": "error",
-                "error": "Set IOT_API_KEY to a registered device key before starting the simulator.",
-            }), 400
+        # Simulate one of the caller's OWN registered devices: the ingest
+        # endpoint binds events to the key owner's device_id, so simulating
+        # a hardcoded device with a foreign key would only produce 403s.
+        body = request.get_json(silent=True) or {}
+        device_id = (body.get("device_id") or "").strip()
+        if not device_id:
+            return jsonify({"error": "device_id is required (use one of your registered devices)"}), 400
+        device = IoTDevice.query.filter_by(
+            user_id=session["user_id"], device_id=device_id, is_active=True).first()
+        if not device:
+            return jsonify({"error": f"Device '{device_id}' not found"}), 404
 
         from iot.simulator import IoTSimulator
-        _simulator_instance = IoTSimulator(interval_range=(1, 4), error_rate=0.05)
+        _simulator_instance = IoTSimulator(
+            interval_range=(1, 4), error_rate=0.05,
+            device_id=device.device_id, device_type=device.device_type,
+            location=device.location, api_key=device.api_key)
         result = _simulator_instance.start()
         return jsonify(result)
 
 
 @iot_bp.route("/simulator/stop", methods=["POST"])
-@login_required
+@role_required("manager", "admin")
 def simulator_stop():
     global _simulator_instance
     with _simulator_lock:

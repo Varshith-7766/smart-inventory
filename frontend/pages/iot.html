@@ -142,6 +142,7 @@
         feather.replace();
         let currentPage = 1;
         let simulatorRunning = false;
+        let registeredDevices = [];
 
         function loadStats() {
             api.get('/iot/stats').then(data => {
@@ -154,6 +155,7 @@
 
         function loadDevices() {
             api.get('/iot/devices').then(data => {
+                registeredDevices = Array.isArray(data) ? data : [];
                 const tbody = document.getElementById('devicesBody');
                 const filter = document.getElementById('deviceFilter');
                 if (!data || data.length === 0) {
@@ -227,9 +229,15 @@
 
         function startSimulator() {
             const btn = document.getElementById('startSimBtn');
+            const deviceId = document.getElementById('deviceFilter').value ||
+                (registeredDevices.length ? registeredDevices[0].device_id : '');
+            if (!deviceId) {
+                showToast('Register a device first, then start the simulator', 'error');
+                return;
+            }
             btn.disabled = true;
             btn.textContent = 'Starting...';
-            api.post('/iot/simulator/start')
+            api.post('/iot/simulator/start', { device_id: deviceId })
                 .then(data => {
                     simulatorRunning = true;
                     btn.textContent = 'Simulator Running';

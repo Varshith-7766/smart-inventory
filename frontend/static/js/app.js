@@ -109,7 +109,7 @@ function showToast(message, type = "info") {
 
     const icons = { success: "check-circle", error: "x-circle", info: "info" };
     toast.className = `toast ${type}`;
-    toast.innerHTML = `<i data-feather="${icons[type] || "info"}"></i><span>${message}</span>`;
+    toast.innerHTML = `<i data-feather="${icons[type] || "info"}"></i><span>${esc(message)}</span>`;
     toast.classList.add("show");
 
     setTimeout(() => toast.classList.remove("show"), 3500);

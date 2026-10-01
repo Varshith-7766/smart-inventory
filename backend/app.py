@@ -21,6 +21,7 @@ import sys
 import logging
 from flask import Flask, jsonify, send_from_directory, redirect
 from flask_cors import CORS
+from werkzeug.exceptions import HTTPException
 from config import Config
 from database import db
 from routes import register_routes
@@ -102,7 +103,17 @@ def create_app(test_config=None):
         from models import Product, Sale, SaleItem, Supplier, User, Category, InventoryLog, IoTDeviceLog, ReorderPrediction, IoTDevice  # noqa: F401
 
         # ---- Step 6: Create tables (if they don't exist yet) ----
-        db.create_all()
+        # Gunicorn boots multiple workers concurrently, and two workers can
+        # race to CREATE the same table on a fresh database. "Already exists"
+        # just means the other worker won the race — safe to ignore.
+        try:
+            db.create_all()
+        except Exception as e:
+            if "already exists" in str(e).lower():
+                logger.warning("Tables already created by another worker; continuing.")
+                db.session.rollback()
+            else:
+                raise
 
     # ---- Step 7: Register all route Blueprints ----
     register_routes(app)
@@ -148,6 +159,13 @@ def create_app(test_config=None):
 
     @app.errorhandler(Exception)
     def unhandled_exception(e):
+        # HTTP exceptions already carry the right status (e.g. 400 CSRF
+        # failures raised by Flask-WTF) — let Flask render them normally
+        # instead of masking them as 500s.
+        if isinstance(e, HTTPException):
+            if request_path_is_api():
+                return jsonify({"error": e.description or "Bad request"}), e.code
+            return e
         logger.error("Unhandled exception: %s", e, exc_info=True)
         if request_path_is_api():
             return jsonify({"error": "Internal server error"}), 500

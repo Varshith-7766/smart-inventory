@@ -53,8 +53,12 @@ def register():
     if User.query.filter_by(username=data["username"]).first():
         return jsonify({"error": "Username already taken"}), 409  # 409 = Conflict
 
-    # --- Check for duplicate email ---
-    if data.get("email") and User.query.filter_by(email=data["email"]).first():
+    # --- Check for duplicate email (normalized; blank emails are rejected
+    # below so two "" rows can never collide with a 500) ---
+    email = (data.get("email") or "").strip().lower()
+    if not email or "@" not in email or "." not in email.split("@")[-1]:
+        return jsonify({"error": "A valid email address is required"}), 400
+    if User.query.filter_by(email=email).first():
         return jsonify({"error": "Email already registered"}), 409
 
     # --- Input validation ---
@@ -75,7 +79,7 @@ def register():
     # existing admin (or via the seed script).
     user = User(
         username=username,
-        email=data.get("email", ""),
+        email=email,
         role="viewer",
     )
     user.set_password(password)
@@ -84,7 +88,8 @@ def register():
     db.session.add(user)
     db.session.commit()
 
-    # Auto-login after registration
+    # Auto-login after registration (fresh session defeats fixation)
+    session.clear()
     session["user_id"] = user.id
     session["role"] = user.role
 
@@ -120,7 +125,8 @@ def login():
     user.last_login = utcnow()
     db.session.commit()
 
-    # Store user ID in the session (Flask signs the cookie)
+    # Store user ID in the session (fresh session defeats fixation)
+    session.clear()
     session["user_id"] = user.id
     session["role"] = user.role
 

@@ -93,16 +93,27 @@ def generate_error(device):
     }
 
 
-def run_simulation(stop_event, interval_range=(1, 5), error_rate=0.05):
+def run_simulation(stop_event, interval_range=(1, 5), error_rate=0.05,
+                   device=None, api_key=""):
     session = requests.Session()
+    # A fixed device simulates one real registered device (its key matches
+    # its device_id, which the ingest endpoint enforces). Without one, the
+    # simulator picks random template devices that no key can own.
+    key = api_key or DEVICE_API_KEY
     headers = {}
-    if DEVICE_API_KEY:
-        headers["X-Device-Key"] = DEVICE_API_KEY
+    if key:
+        headers["X-Device-Key"] = key
     else:
         logger.warning("IOT_API_KEY not set — simulated events will be rejected (401)")
 
+    fixed = None
+    if device:
+        fixed = {"device_id": device["device_id"],
+                 "device_type": device.get("device_type", "generic"),
+                 "location": device.get("location")}
+
     while not stop_event.is_set():
-        device = random.choice(DEVICE_TEMPLATES)
+        device = fixed or random.choice(DEVICE_TEMPLATES)
         roll = random.random()
         if roll < error_rate:
             payload = generate_error(device)
@@ -123,9 +134,13 @@ def run_simulation(stop_event, interval_range=(1, 5), error_rate=0.05):
 
 
 class IoTSimulator:
-    def __init__(self, interval_range=(1, 5), error_rate=0.05):
+    def __init__(self, interval_range=(1, 5), error_rate=0.05,
+                 device_id=None, device_type="generic", location=None, api_key=""):
         self.interval_range = interval_range
         self.error_rate = error_rate
+        self.device = {"device_id": device_id, "device_type": device_type,
+                       "location": location} if device_id else None
+        self.api_key = api_key
         self._thread = None
         self._stop = threading.Event()
 
@@ -135,7 +150,7 @@ class IoTSimulator:
         self._stop.clear()
         self._thread = threading.Thread(
             target=run_simulation,
-            args=(self._stop, self.interval_range, self.error_rate),
+            args=(self._stop, self.interval_range, self.error_rate, self.device, self.api_key),
             daemon=True,
         )
         self._thread.start()
