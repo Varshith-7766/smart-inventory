@@ -51,7 +51,14 @@ class Config:
     # Reads DATABASE_URL from environment (set on Render as postgresql://...)
     # Render provides URLs starting with postgres:// which SQLAlchemy doesn't like,
     # so we replace it with postgresql://
-    _db_url = os.getenv("DATABASE_URL", "sqlite:///inventory.db")
+    # MYSQL_URL is what Railway's MySQL plugin injects when the service
+    # references the database directly; accept it so a missing DATABASE_URL
+    # never silently lands on a throwaway SQLite file.
+    _db_url = (
+        os.getenv("DATABASE_URL")
+        or os.getenv("MYSQL_URL")
+        or "sqlite:///inventory.db"
+    )
     if _db_url and _db_url.startswith("postgres://"):
         _db_url = _db_url.replace("postgres://", "postgresql://", 1)
     # Railway's MySQL plugin provides mysql:// URLs, but SQLAlchemy needs

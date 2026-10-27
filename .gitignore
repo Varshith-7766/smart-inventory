@@ -21,3 +21,4 @@ migrations/versions/
 Thumbs.db
 docker-compose.override.yml
 .gstack/
+backups/

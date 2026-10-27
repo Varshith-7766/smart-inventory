@@ -83,6 +83,19 @@ def create_app(test_config=None):
             RuntimeWarning,
         )
 
+    # ---- Database safety check ----
+    # Without a configured URL the app used to boot happily on a SQLite file
+    # inside the container: writes "succeed" and vanish on the next deploy.
+    # Refuse to start instead. Explicitly setting DATABASE_URL=sqlite://... is
+    # still allowed, so local SQLite development keeps working.
+    if not app.config.get("TESTING") and not (
+        os.getenv("DATABASE_URL") or os.getenv("MYSQL_URL")
+    ):
+        raise RuntimeError(
+            "No database configured. Set DATABASE_URL (or MYSQL_URL) — "
+            "refusing to start on a throwaway SQLite file."
+        )
+
     # ---- Step 3: Enable CORS ----
     # The frontend is served same-origin, so no CORS is needed by default.
     # If ALLOWED_ORIGINS is configured, only those exact origins may make

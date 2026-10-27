@@ -1,0 +1,18 @@
+# Keep secrets and local state out of the image.
+# backend/.env holds the local DB password; instance/ holds a throwaway
+# SQLite file with demo data. Neither belongs in a published layer.
+.git
+.gitignore
+.env
+**/.env
+backend/instance/
+*.db
+*.sqlite3
+__pycache__/
+*.pyc
+.pytest_cache/
+tests/
+scripts/
+docs/
+backups/
+*.md
