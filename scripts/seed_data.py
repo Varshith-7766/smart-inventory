@@ -54,8 +54,10 @@ with app.app_context():
     for day_offset in range(60, 0, -1):
         sale_date = today - timedelta(days=day_offset)
         for product in products:
-            if random.random() < 0.3:
-                qty = random.randint(1, 5)
+            # Never sell more than the seed stock: 60 days × 5 products can
+            # otherwise drive quantities negative, which looks like bad data.
+            if product.quantity > 0 and random.random() < 0.3:
+                qty = random.randint(1, min(5, product.quantity))
                 total = qty * float(product.unit_price)
                 sale = Sale(sale_date=sale_date, total_amount=total, customer_name="Auto-generated")
                 sale.items = [SaleItem(product_id=product.id, quantity=qty, unit_price=float(product.unit_price), total_price=total)]

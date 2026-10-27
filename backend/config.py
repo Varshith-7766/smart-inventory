@@ -61,6 +61,11 @@ class Config:
     SQLALCHEMY_DATABASE_URI = _db_url
     # Disable Flask-SQLAlchemy event system (saves memory)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    # MySQL drops idle connections (and restarts kill them all). Without
+    # pre-ping the first request to touch a stale pooled connection dies with
+    # a 500 "Lost connection to MySQL server during query".
+    if not _db_url.startswith("sqlite"):
+        SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True, "pool_recycle": 280}
 
     # --- CORS ---
     # The frontend is served same-origin by Flask, so no cross-origin access

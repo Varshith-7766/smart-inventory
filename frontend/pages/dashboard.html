@@ -102,7 +102,7 @@
                 </div>
 
                 <!-- Charts row -->
-                <div class="stats-grid" style="grid-template-columns: 2fr 1fr;">
+                <div class="stats-grid charts-grid">
                     <div class="card">
                         <div class="card-header">
                             <h3><i data-feather="trending-up" style="width:16px;height:16px;vertical-align:middle;"></i> Sales Trend (30 days)</h3>
@@ -167,8 +167,9 @@
                     badge.style.display = "inline";
                 }
 
-                // Low stock alerts list
-                const alerts = await api.get("/dashboard/low-stock");
+                // Low stock alerts list (a 401/error body is an object, not a list)
+                const alertsBody = await api.get("/dashboard/low-stock");
+                const alerts = Array.isArray(alertsBody) ? alertsBody : [];
                 const tbody = document.getElementById("alertsBody");
                 if (alerts.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No low stock alerts</td></tr>';

@@ -193,7 +193,12 @@ a:hover { color: var(--primary-hover); }
     margin-left: var(--sidebar-width);
     min-height: 100vh;
     padding: 0;
+    /* let wide tables scroll inside .table-container instead of stretching the page */
+    min-width: 0;
 }
+
+/* Dashboard charts row: trend chart gets the extra space */
+.charts-grid { grid-template-columns: 2fr 1fr; }
 
 /* Top bar */
 .topbar {
@@ -695,6 +700,11 @@ textarea.form-control { min-height: 80px; resize: vertical; }
     .stats-grid { grid-template-columns: 1fr; }
     .card-header { flex-direction: column; align-items: stretch; }
     .card-header .btn { align-self: flex-start; }
+}
+
+/* Declared after .stats-grid so the chart row always stacks on narrow screens */
+@media (max-width: 900px) {
+    .stats-grid.charts-grid { grid-template-columns: 1fr; }
 }
 
 /* ----- Utility classes ----- */
